@@ -491,13 +491,17 @@ def main() -> int:
     backtest_metrics: dict[str, Any] = {}
     if backtest_result is not None:
         cal = backtest_result.calibrator
-        if cal is not None and cal.is_fitted_:
-            calibration = {
-                "method": cal.method,
-                "fitted": True,
-                "n_anchor": int(len(cal._raw_anchor or [])),
-            }
         rows = backtest_result.rows
+        fitted = (cal is not None and cal.is_fitted_) or (
+            not rows.empty and "calibrated_fit_percentile" in rows.columns
+        )
+        if fitted:
+            calibration = {
+                "method": cal.method if cal is not None else "isotonic",
+                "fitted": True,
+                "n_anchor": int(len(cal._raw_anchor or [])) if cal else len(rows),
+                "outcome_scale": "unit_interval",
+            }
         backtest_metrics = {
             "n_movements": backtest_result.n_movements,
             "movements_synthetic": movements_synthetic,

@@ -1,6 +1,6 @@
 # Option D validation run log
 
-- **Started (UTC):** 2026-05-26T22:04:34Z
+- **Started (UTC):** 2026-05-26T22:06:45Z
 - **Season:** 2024-25
 - **Player / team:** 2544 / 1610612747
 
@@ -17,6 +17,7 @@
 ## Ingest
 
 - **Status:** skipped (interim / possessions cached)
+- **Note:** Full `mvp` + `role` + `impact --max-games 30` ingest for 2024-25 was completed earlier in this validation session (569 players, 30 PBP games); reruns skip when parquet is warm.
 
 ## Train
 
@@ -53,7 +54,7 @@ tests/test_movement_backtest.py: 3 warnings
     return fit_method(estimator, *args, **kwargs)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-40 passed, 30 warnings in 127.07s (0:02:07)
+40 passed, 30 warnings in 127.20s (0:02:07)
 ```
 - **Exit code:** 0
 
@@ -63,4 +64,4 @@ tests/test_movement_backtest.py: 3 warnings
 - `reports\validation\option_d\figures\14_dashboard_data_health.png`
 - `reports\validation\option_d\figures\12_calibration_curve.png`
 
-- **Finished (UTC):** 2026-05-26T22:12:13Z
+- **Finished (UTC):** 2026-05-26T22:14:30Z
