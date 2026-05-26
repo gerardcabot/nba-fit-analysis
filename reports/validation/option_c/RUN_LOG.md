@@ -1,7 +1,7 @@
 # Option C validation run
 
 - Season: `2024-25`
-- Started: `2026-05-26T21:52:58.413641+00:00`
+- Started: `2026-05-26T22:17:54.155444+00:00`
 - Impact max games: `30`
 
 ## Command log
@@ -29,7 +29,7 @@ lineup-sim projected_net_rating_delta: +0.30
 
 $ C:\Users\geric\AppData\Local\Programs\Python\Python310\python.exe -m pytest tests/test_rapm.py tests/test_pbp_smoke.py -q
 ..........                                                               [100%]
-10 passed in 3.18s
+10 passed in 2.09s
 
 $ python visual_tests/09_possession_rate.py
 

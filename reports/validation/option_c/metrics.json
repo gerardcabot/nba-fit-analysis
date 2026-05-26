@@ -1,6 +1,6 @@
 {
   "season": "2024-25",
-  "started_at": "2026-05-26T21:52:58.413641+00:00",
+  "started_at": "2026-05-26T22:17:54.155444+00:00",
   "impact_max_games": 30,
   "player_id": 2544,
   "team_id": 1610612747,
@@ -34,9 +34,9 @@
     }
   ],
   "figures": [
-    "reports/validation/option_c/figures/10_rapm_distribution.png",
-    "reports/validation/option_c/figures/ingest/09_possession_rate.png",
-    "reports/validation/option_c/figures/option_c/11_lineup_delta_bar.png"
+    "reports\\validation\\option_c\\figures\\10_rapm_distribution.png",
+    "reports\\validation\\option_c\\figures\\ingest\\09_possession_rate.png",
+    "reports\\validation\\option_c\\figures\\option_c\\11_lineup_delta_bar.png"
   ],
-  "finished_at": "2026-05-26T21:59:39.012563+00:00"
+  "finished_at": "2026-05-26T22:21:02.179179+00:00"
 }
