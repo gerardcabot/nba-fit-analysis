@@ -104,6 +104,24 @@ def _role_interim_ready(season: str) -> bool:
     return interim_onoff_path(season).exists() and interim_lineup_units_path(season).exists()
 
 
+def _ensure_out() -> None:
+    _OUT.mkdir(parents=True, exist_ok=True)
+    _FIGURES_OUT.mkdir(parents=True, exist_ok=True)
+
+
+def _load_visual_test_module(script_stem: str):
+    """Load visual_tests/NN_name.py (numeric stems are invalid as import names)."""
+    import importlib.util
+
+    path = _REPO / "visual_tests" / f"{script_stem}.py"
+    spec = importlib.util.spec_from_file_location(f"_vt_{script_stem}", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load visual test module from {path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _copy_visual_figure(src: Path, dest_name: str) -> Path | None:
     if not src.is_file():
         return None
@@ -117,24 +135,24 @@ def _run_visual_tests(log_lines: list[str]) -> dict[str, object]:
     """Run visual_tests 06–08 in-process; save PNGs under validation figures/."""
     if str(_REPO) not in sys.path:
         sys.path.insert(0, str(_REPO))
-    import importlib
-
     import visual_tests._constants as vt_constants  # noqa: WPS433
+    import visual_tests._plot_utils as plot_utils  # noqa: WPS433
 
+    _ensure_out()
     vt_constants.FIGURES_DIR = _FIGURES_OUT
-    _FIGURES_OUT.mkdir(parents=True, exist_ok=True)
+    plot_utils.FIGURES_DIR = _FIGURES_OUT
 
     modules = [
-        ("visual_tests.06_onoff_minutes", "06_onoff_minutes.png"),
-        ("visual_tests.07_archetype_map", "07_archetype_map.png"),
-        ("visual_tests.08_team_need_radar", "08_team_need_radar.png"),
+        ("06_onoff_minutes", "06_onoff_minutes.png"),
+        ("07_archetype_map", "07_archetype_map.png"),
+        ("08_team_need_radar", "08_team_need_radar.png"),
     ]
     results: dict[str, object] = {}
-    for mod_name, dest_name in modules:
-        short = mod_name.rsplit(".", 1)[-1]
+    for script_stem, dest_name in modules:
+        short = script_stem
         _log(f"Visual test {short}...", log_lines)
         try:
-            mod = importlib.import_module(mod_name)
+            mod = _load_visual_test_module(script_stem)
             rc = int(mod.main())
         except Exception as exc:  # noqa: BLE001
             rc = 1
@@ -172,8 +190,7 @@ def _explained_variance_summary(role_ctx: RoleFitContext) -> dict[str, object]:
 
 
 def main() -> int:
-    _OUT.mkdir(parents=True, exist_ok=True)
-    _FIGURES_OUT.mkdir(parents=True, exist_ok=True)
+    _ensure_out()
 
     log_lines: list[str] = []
     api_notes: list[str] = []
@@ -299,6 +316,7 @@ def main() -> int:
                 prefer_api=False,
                 synthetic=False,
             )
+            _ensure_out()
             board.to_csv(_OUT / "archetype_board.csv", index=False)
             log_lines.append(f"- **Rows:** {len(board)}")
         except Exception as exc:  # noqa: BLE001
@@ -317,8 +335,10 @@ def main() -> int:
             table = build_fit_index_table(context, role_context=role_ctx)
             ranker = FitRanker(context=context, table=table)
             player_rank = ranker.rank_destinations_for_player(PLAYER_ID, top_n=TOP_N_RANK)
+            _ensure_out()
             player_rank.to_csv(_OUT / "rankings_player_2544.csv", index=False)
             card = ranker.fit_card(PLAYER_ID, TEAM_ID, role_context=role_ctx)
+            _ensure_out()
             (_OUT / "fit_card_2544_1610612747.json").write_text(
                 fit_card_to_json(card), encoding="utf-8"
             )
@@ -370,11 +390,13 @@ def main() -> int:
         "fit_card_archetype": card.get("archetype"),
         "fit_card_comps_count": len(card.get("comps") or []),
     }
+    _ensure_out()
     (_OUT / "metrics.json").write_text(
         json.dumps(metrics, indent=2, default=str), encoding="utf-8"
     )
 
     log_lines.extend(["", f"- **Finished (UTC):** {_utc_now()}"])
+    _ensure_out()
     (_OUT / "RUN_LOG.md").write_text("\n".join(log_lines), encoding="utf-8")
 
     print(json.dumps(metrics, indent=2, default=str))

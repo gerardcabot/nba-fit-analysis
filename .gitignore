@@ -18,7 +18,9 @@ data/raw/
 data/interim/
 data/features/
 /models/
-reports/figures/
+reports/*
+!reports/validation/
+!reports/validation/**
 
 # IDE / OS
 .idea/
