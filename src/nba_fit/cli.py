@@ -16,11 +16,16 @@ from nba_fit.config.settings import (
 from nba_fit.data.client import NBAClient
 from nba_fit.data.ingest import run_ingest
 from nba_fit.data.registry import ProbeRegistry
-from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID
+from nba_fit.features.season_context import (
+    DEMO_PLAYER_ID,
+    DEMO_TEAM_ID,
+    SeasonFitContext,
+)
 from nba_fit.models.impact_context import train_impact_for_season
 from nba_fit.models.role_context import train_roles_for_season
 from nba_fit.scoring.archetype_board import archetype_board_for_team
 from nba_fit.scoring.fit_card import fit_card_to_json
+from nba_fit.scoring.lineup_sim import run_lineup_sim
 from nba_fit.scoring.ranker import FitRanker
 
 
@@ -202,6 +207,55 @@ def _cmd_train_impact(args: argparse.Namespace) -> int:
     print(f"  lineup model penalty: {impact_ctx.lineup_model.penalty}")
     print(f"  saved rapm: {rapm_out}")
     print(f"  saved lineup_model: {lineup_out}")
+    return 0
+
+
+def _cmd_lineup_sim(args: argparse.Namespace) -> int:
+    player_id = int(args.player_id)
+    team_id = int(args.team_id)
+    season = args.season or get_settings().default_season
+    try:
+        result = run_lineup_sim(
+            player_id,
+            team_id,
+            season,
+            top_n=args.top,
+            prefer_interim=not args.synthetic,
+            prefer_api=not args.synthetic,
+            synthetic=args.synthetic,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"lineup-sim failed: {exc}", file=sys.stderr)
+        return 1
+
+    team_label = str(team_id)
+    if not args.synthetic:
+        try:
+            ctx = SeasonFitContext.build(
+                season, prefer_interim=True, prefer_api=False
+            )
+            team = ctx.teams.get(team_id)
+            if team is not None:
+                team_label = team.display_name
+        except Exception:  # noqa: BLE001
+            pass
+
+    print(
+        f"Lineup simulation — player {player_id} on {team_label} "
+        f"({result.season}, source={result.data_source})"
+    )
+    if result.projected_net_rating_delta is not None:
+        print(
+            f"  projected_net_rating_delta: "
+            f"{result.projected_net_rating_delta:+.2f} (pts/100 poss)"
+        )
+    table = result.to_table()
+    if table.empty:
+        print("  No projected lineup units.", file=sys.stderr)
+        return 1
+    print(table.to_string(index=False))
+    if result.note:
+        print(f"\n  {result.note}")
     return 0
 
 
@@ -391,6 +445,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Retrain and persist role model even if artifacts exist",
     )
     archetype.set_defaults(func=_cmd_archetype_board)
+
+    lineup_sim = sub.add_parser(
+        "lineup-sim",
+        help="Project top five-man units and net-rating deltas (Option C)",
+    )
+    lineup_sim.add_argument(
+        "player_id",
+        nargs="?",
+        type=int,
+        default=DEMO_PLAYER_ID,
+        help=f"NBA player ID (default: {DEMO_PLAYER_ID})",
+    )
+    lineup_sim.add_argument(
+        "team_id",
+        nargs="?",
+        type=int,
+        default=DEMO_TEAM_ID,
+        help=f"Destination team ID (default: {DEMO_TEAM_ID})",
+    )
+    lineup_sim.add_argument("--season", default=get_settings().default_season)
+    lineup_sim.add_argument(
+        "--top",
+        type=int,
+        default=5,
+        help="Number of lineup units to show (default: 5)",
+    )
+    lineup_sim.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Use deterministic synthetic lineups (offline)",
+    )
+    lineup_sim.set_defaults(func=_cmd_lineup_sim)
 
     return parser
 
