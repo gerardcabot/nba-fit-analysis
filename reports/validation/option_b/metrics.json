@@ -1,0 +1,127 @@
+{
+  "generated_at_utc": "2026-05-26T20:57:00Z",
+  "season": "2024-25",
+  "ingest_ok": true,
+  "train_roles_ok": true,
+  "ingest_mvp": {
+    "season": "2024-25",
+    "tier": "mvp",
+    "elapsed_sec": 0.5,
+    "player_rows": 569,
+    "team_rows": 30,
+    "lineup_units_rows": 0,
+    "onoff_rows": 0,
+    "players_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\players\\season=2024-25\\data.parquet",
+    "teams_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\teams\\season=2024-25\\data.parquet",
+    "lineup_units_path": null,
+    "onoff_path": null,
+    "endpoints": {
+      "leaguedashplayerstats": 569,
+      "leaguedashteamstats": 30,
+      "playerestimatedmetrics": 569,
+      "teamestimatedmetrics": 30,
+      "leaguedashplayerbiostats": 569,
+      "leaguedashplayershotlocations": 569,
+      "leaguedashteamshotlocations": 30
+    }
+  },
+  "ingest_role": {
+    "season": "2024-25",
+    "tier": "role",
+    "skipped": true,
+    "onoff_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\onoff\\season=2024-25\\data.parquet",
+    "lineup_units_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\lineup_units\\season=2024-25\\data.parquet"
+  },
+  "api_notes": [],
+  "n_players_embedded": 569,
+  "n_archetype_labels": 6,
+  "n_archetype_clusters": 8,
+  "archetype_label_counts": {
+    "connector_wing": 33,
+    "high_usage_creator": 82,
+    "movement_shooter": 114,
+    "rim_protector": 61,
+    "rim_running_big": 67,
+    "versatile_forward": 212
+  },
+  "explained_variance": {
+    "available": true,
+    "n_components": 12,
+    "per_component": [
+      0.238,
+      0.1254,
+      0.099,
+      0.0878,
+      0.065,
+      0.0413,
+      0.0424,
+      0.0347,
+      0.0346,
+      0.0269,
+      0.0239,
+      0.0213
+    ],
+    "cumulative": 0.8404
+  },
+  "embedding_method": "truncated_svd",
+  "pytest_exit_code": 0,
+  "visual_tests": {
+    "06_onoff_minutes": {
+      "exit_code": 0,
+      "figures": [
+        "figures\\06_onoff_minutes.png"
+      ]
+    },
+    "07_archetype_map": {
+      "exit_code": 0,
+      "figures": [
+        "figures\\07_archetype_map.png"
+      ]
+    },
+    "08_team_need_radar": {
+      "exit_code": 0,
+      "figures": [
+        "figures\\08_team_need_radar.png"
+      ]
+    }
+  },
+  "top5_archetype_board": [
+    {
+      "rank": 1,
+      "player_id": 1626192,
+      "player": "Pat Connaughton",
+      "archetype": "versatile_forward",
+      "role_fit": 0.6755316621933867
+    },
+    {
+      "rank": 2,
+      "player_id": 1630165,
+      "player": "Killian Hayes",
+      "archetype": "movement_shooter",
+      "role_fit": 0.6690774234001702
+    },
+    {
+      "rank": 3,
+      "player_id": 203114,
+      "player": "Khris Middleton",
+      "archetype": "rim_protector",
+      "role_fit": 0.6619611466080113
+    },
+    {
+      "rank": 4,
+      "player_id": 1630222,
+      "player": "Mason Jones",
+      "archetype": "connector_wing",
+      "role_fit": 0.659718299496797
+    },
+    {
+      "rank": 5,
+      "player_id": 200768,
+      "player": "Kyle Lowry",
+      "archetype": "movement_shooter",
+      "role_fit": 0.658588490286069
+    }
+  ],
+  "fit_card_archetype": "high_usage_creator",
+  "fit_card_comps_count": 5
+}
