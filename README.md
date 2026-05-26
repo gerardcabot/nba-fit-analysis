@@ -64,6 +64,17 @@ python -m nba_fit rank-player 2544 --fit-card-team 1610612747
 
 Fit cards add `lineup_synergy` (top units + per-unit deltas) and top-level `projected_net_rating_delta` after Option A/B fields.
 
+## Dashboard (Phase 6)
+
+Install the optional dashboard extra, then launch Streamlit:
+
+```bash
+pip install -e ".[dashboard]"
+streamlit run src/nba_fit/app/dashboard.py
+```
+
+Views: Player Destination Explorer, Team Target Board, Fit Card, Lineup Simulator, Archetype Map, Backtest Report (calibration snapshot), and Data Health (probe registry). Use the sidebar **Synthetic demo data** checkbox for offline use without ingest.
+
 ## Tests
 
 ```bash
@@ -71,4 +82,5 @@ pytest
 python visual_tests/00_cache_smoke.py
 python visual_tests/08_team_need_radar.py
 python visual_tests/11_lineup_delta_bar.py
+python visual_tests/14_dashboard_data_health.py
 ```
