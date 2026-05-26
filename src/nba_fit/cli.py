@@ -26,6 +26,9 @@ from nba_fit.models.role_context import train_roles_for_season
 from nba_fit.scoring.archetype_board import archetype_board_for_team
 from nba_fit.scoring.fit_card import fit_card_to_json
 from nba_fit.scoring.lineup_sim import run_lineup_sim
+from nba_fit.data.fetchers.transactions import synthetic_movements
+from nba_fit.evaluation.holdout_season import run_holdout_season_smoke
+from nba_fit.evaluation.movement_backtest import run_movement_backtest
 from nba_fit.scoring.ranker import FitRanker
 
 
@@ -478,7 +481,75 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lineup_sim.set_defaults(func=_cmd_lineup_sim)
 
+    backtest = sub.add_parser(
+        "backtest-movement",
+        help="Smoke movement backtest for a season (Option D)",
+    )
+    backtest.add_argument(
+        "--season",
+        default="2024-25",
+        help="NBA season string (default: 2024-25)",
+    )
+    backtest.add_argument(
+        "--synthetic",
+        action="store_true",
+        default=True,
+        help="Use synthetic vectors (default: on for offline smoke)",
+    )
+    backtest.add_argument(
+        "--no-synthetic",
+        action="store_false",
+        dest="synthetic",
+        help="Use interim/API season context when available",
+    )
+    backtest.add_argument(
+        "--moves",
+        type=int,
+        default=20,
+        help="Number of synthetic movements to simulate (default: 20)",
+    )
+    backtest.set_defaults(func=_cmd_backtest_movement)
+
     return parser
+
+
+def _cmd_backtest_movement(args: argparse.Namespace) -> int:
+    season = args.season or get_settings().default_season
+    print(f"Movement backtest — season={season} synthetic={args.synthetic}...")
+    try:
+        if args.synthetic:
+            context = SeasonFitContext.from_synthetic(season, n_players=40)
+            movements = synthetic_movements(season, n_moves=args.moves)
+        else:
+            context = SeasonFitContext.build(
+                season, prefer_interim=True, prefer_api=False
+            )
+            movements = None
+        result = run_movement_backtest(context, movements)
+        holdout = run_holdout_season_smoke(season, synthetic=args.synthetic)
+    except Exception as exc:  # noqa: BLE001
+        print(f"backtest-movement failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"  movements scored: {result.n_movements}")
+    if not result.rows.empty and "calibrated_fit_percentile" in result.rows.columns:
+        print(
+            f"  mean calibrated fit percentile: "
+            f"{result.rows['calibrated_fit_percentile'].mean():.1f}"
+        )
+    if not result.rows.empty and "post_move_outcome" in result.rows.columns:
+        print(f"  mean post-move outcome: {result.rows['post_move_outcome'].mean():.3f}")
+    print(f"  holdout train={holdout.train_season} predict={holdout.predict_season}")
+    print(
+        f"  holdout pairs: train={holdout.train_pairs} predict={holdout.predict_pairs} "
+        f"overlap_players={holdout.overlap_players}"
+    )
+    if holdout.mean_predict_percentile is not None:
+        print(
+            f"  holdout mean predict percentile: "
+            f"{holdout.mean_predict_percentile:.1f}"
+        )
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

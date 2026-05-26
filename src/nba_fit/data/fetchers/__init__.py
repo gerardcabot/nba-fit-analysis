@@ -23,6 +23,14 @@ from nba_fit.data.fetchers.pbp import (
     league_game_ids,
     playbyplay_frame,
 )
+from nba_fit.data.fetchers.transactions import (
+    MovementEvent,
+    ensure_stub_template,
+    fetch_movements_from_gamelogs,
+    get_movements,
+    load_manual_movements,
+    synthetic_movements,
+)
 
 __all__ = [
     "fetch_league_dash",
@@ -42,4 +50,10 @@ __all__ = [
     "fetch_gamerotation_batch",
     "fetch_option_c_impact",
     "playbyplay_frame",
+    "MovementEvent",
+    "ensure_stub_template",
+    "fetch_movements_from_gamelogs",
+    "get_movements",
+    "load_manual_movements",
+    "synthetic_movements",
 ]

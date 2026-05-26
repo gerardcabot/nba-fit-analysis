@@ -81,6 +81,9 @@ def test_fit_card_structure(context: SeasonFitContext) -> None:
     assert "projected_net_rating_delta" in card
     assert set(card["submetrics"].keys()) == set(SUBMETRIC_NAMES)
     assert card["overall_fit_percentile"] is not None
+    assert "fit_uncertainty" in card
+    assert "ensemble" in card
+    assert "ensemble_contributions" in card
 
 
 def test_weighted_raw_score_matches_manual(context: SeasonFitContext) -> None:

@@ -6,7 +6,8 @@ from typing import Any
 
 from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.role_context import RoleFitContext
-from nba_fit.scoring.constants import SUBMETRIC_NAMES
+from nba_fit.scoring.constants import ENSEMBLE_DERIVED_NAMES, SUBMETRIC_NAMES
+from nba_fit.scoring.ensemble import component_contributions, uncertainty_band
 from nba_fit.scoring.fit_index import FitIndexTable, get_pair_row
 from nba_fit.scoring.lineup_sim import run_lineup_sim
 from nba_fit.scoring.role_fit import team_need_fit
@@ -28,13 +29,31 @@ def build_fit_card(
     team_label = team.display_name if team else str(team_id)
 
     submetrics: dict[str, float] = {}
+    ensemble: dict[str, float] = {}
+    contributions: dict[str, float] = {}
     overall: float | None = None
     raw: float | None = None
+    uncertainty_low: float | None = None
+    uncertainty_high: float | None = None
     if row is not None:
         overall = float(row["overall_fit_percentile"])
         raw = float(row["raw_fit_score"])
         for name in SUBMETRIC_NAMES:
             submetrics[name] = float(row[name])
+        for name in ENSEMBLE_DERIVED_NAMES:
+            col = f"ensemble_{name}"
+            if col in row.index:
+                ensemble[name] = float(row[col])
+        contrib_cols = [c for c in row.index if str(c).startswith("contrib_")]
+        for col in contrib_cols:
+            contributions[str(col).replace("contrib_", "")] = float(row[col])
+        if "fit_uncertainty_low" in row.index:
+            uncertainty_low = float(row["fit_uncertainty_low"])
+            uncertainty_high = float(row["fit_uncertainty_high"])
+        elif ensemble:
+            low, high = uncertainty_band(overall, ensemble)
+            uncertainty_low, uncertainty_high = low, high
+            contributions = contributions or component_contributions(ensemble)
 
     archetype_label: str | None = None
     archetype_id: int | None = None
@@ -89,6 +108,12 @@ def build_fit_card(
         "season": table.season,
         "overall_fit_percentile": overall,
         "raw_fit_score": raw,
+        "fit_uncertainty": {
+            "low_percentile": uncertainty_low,
+            "high_percentile": uncertainty_high,
+        },
+        "ensemble": ensemble,
+        "ensemble_contributions": contributions,
         "submetrics": submetrics,
         "archetype": archetype_label,
         "archetype_id": archetype_id,
