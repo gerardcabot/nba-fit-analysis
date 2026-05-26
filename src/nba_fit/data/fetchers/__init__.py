@@ -13,6 +13,16 @@ from nba_fit.data.fetchers.lineups_onoff import (
     lineup_onoff_kwargs,
     lineup_units_frame,
 )
+from nba_fit.data.fetchers.pbp import (
+    fetch_gamerotation_batch,
+    fetch_gamerotation_game,
+    fetch_league_game_finder,
+    fetch_option_c_impact,
+    fetch_playbyplay_batch,
+    fetch_playbyplay_game,
+    league_game_ids,
+    playbyplay_frame,
+)
 
 __all__ = [
     "fetch_league_dash",
@@ -24,4 +34,12 @@ __all__ = [
     "fetch_option_b_role",
     "lineup_onoff_kwargs",
     "lineup_units_frame",
+    "fetch_league_game_finder",
+    "league_game_ids",
+    "fetch_playbyplay_game",
+    "fetch_playbyplay_batch",
+    "fetch_gamerotation_game",
+    "fetch_gamerotation_batch",
+    "fetch_option_c_impact",
+    "playbyplay_frame",
 ]

@@ -6,7 +6,13 @@ import argparse
 import sys
 
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY, ESSENTIAL_ENDPOINTS
-from nba_fit.config.settings import INGEST_TIER_MVP, INGEST_TIER_ROLE, get_settings
+from nba_fit.config.settings import (
+    INGEST_IMPACT_MAX_GAMES_DEV,
+    INGEST_TIER_IMPACT,
+    INGEST_TIER_MVP,
+    INGEST_TIER_ROLE,
+    get_settings,
+)
 from nba_fit.data.client import NBAClient
 from nba_fit.data.ingest import run_ingest
 from nba_fit.data.registry import ProbeRegistry
@@ -52,12 +58,20 @@ def _cmd_health(_args: argparse.Namespace) -> int:
 def _cmd_ingest(args: argparse.Namespace) -> int:
     settings = get_settings()
     season = args.season or settings.default_season
-    print(f"Ingest tier={args.tier} season={season} (cache={'on' if not args.no_cache else 'off'})...")
+    max_games = getattr(args, "max_games", None)
+    cap_msg = ""
+    if args.tier == INGEST_TIER_IMPACT and max_games is not None:
+        cap_msg = f" max_games={max_games}"
+    print(
+        f"Ingest tier={args.tier} season={season}{cap_msg} "
+        f"(cache={'on' if not args.no_cache else 'off'})..."
+    )
     try:
         result = run_ingest(
             season=season,
             tier=args.tier,
             use_cache=not args.no_cache,
+            max_games=max_games,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"Ingest failed: {exc}", file=sys.stderr)
@@ -71,6 +85,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         print(f"  lineup_units: {result.lineup_units_rows} rows -> {result.lineup_units_path}")
     if result.onoff_path:
         print(f"  onoff:   {result.onoff_rows} rows -> {result.onoff_path}")
+    if result.possessions_rows:
+        print(
+            f"  possessions: {result.possessions_rows} rows "
+            f"({result.games_ingested} games, {len(result.possessions_paths)} files)"
+        )
+        if result.possessions_paths:
+            print(f"    first: {result.possessions_paths[0]}")
     for endpoint, fetch in result.fetched.items():
         rows = sum(len(df) for df in fetch.frames.values())
         cache_flag = "cache" if fetch.from_cache else "live"
@@ -229,8 +250,21 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument(
         "--tier",
         default=INGEST_TIER_MVP,
-        choices=[INGEST_TIER_MVP, INGEST_TIER_ROLE],
-        help="Ingest bundle (mvp = Option A; role = Option B lineups/on-off)",
+        choices=[INGEST_TIER_MVP, INGEST_TIER_ROLE, INGEST_TIER_IMPACT],
+        help=(
+            "Ingest bundle (mvp = Option A; role = Option B lineups/on-off; "
+            "impact = Option C possessions)"
+        ),
+    )
+    ingest.add_argument(
+        "--max-games",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            f"Cap per-game PBP pulls for --tier {INGEST_TIER_IMPACT} "
+            f"(default {INGEST_IMPACT_MAX_GAMES_DEV}; see settings for rationale)"
+        ),
     )
     ingest.add_argument("--no-cache", action="store_true", help="Bypass Parquet cache")
     ingest.set_defaults(func=_cmd_ingest)

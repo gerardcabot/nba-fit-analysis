@@ -150,6 +150,65 @@ ONOFF_COL_COURT_STATUS: str = "COURT_STATUS"
 LINEUP_COL_GROUP_NAME: str = "GROUP_NAME"
 LINEUP_COL_GROUP_ID: str = "GROUP_ID"
 
+# ---------------------------------------------------------------------------
+# Ingest tiers (Option C — possession / stint foundation for lineup impact)
+# ---------------------------------------------------------------------------
+
+# CLI tier name for play-by-play + rotation + possession interim tables
+INGEST_TIER_IMPACT: str = "impact"
+
+# Option C endpoints: game index, per-game PBP, rotation stints
+OPTION_C_IMPACT_ENDPOINTS: tuple[str, ...] = (
+    "leaguegamefinder",
+    "playbyplayv3",
+    "gamerotation",
+)
+
+# Regular season: 30 teams × 82 games / 2 unique matchups per season
+REGULAR_SEASON_GAME_COUNT: int = 1230
+
+# stats.nba.com leaguegamefinder column names
+LEAGUE_GAME_FINDER_GAME_ID_COL: str = "GAME_ID"
+LEAGUE_GAME_FINDER_DATE_COL: str = "GAME_DATE"
+
+# playbyplayv3 / gamerotation primary dataset keys (probe_all_results.json)
+PBP_PLAYBYPLAY_DATASET: str = "PlayByPlay"
+GAME_ROTATION_TEAM_DATASETS: tuple[str, ...] = ("HomeTeam", "AwayTeam")
+
+# playbyplayv3 event columns (V3 schema)
+PBP_COL_GAME_ID: str = "gameId"
+PBP_COL_ACTION_NUMBER: str = "actionNumber"
+PBP_COL_CLOCK: str = "clock"
+PBP_COL_PERIOD: str = "period"
+PBP_COL_TEAM_ID: str = "teamId"
+PBP_COL_ACTION_TYPE: str = "actionType"
+PBP_COL_SUB_TYPE: str = "subType"
+PBP_COL_SHOT_RESULT: str = "shotResult"
+PBP_COL_IS_FIELD_GOAL: str = "isFieldGoal"
+
+# gamerotation stint columns (seconds from game start, deciseconds in API)
+ROTATION_COL_IN_TIME: str = "IN_TIME_REAL"
+ROTATION_COL_OUT_TIME: str = "OUT_TIME_REAL"
+ROTATION_COL_PERSON_ID: str = "PERSON_ID"
+ROTATION_COL_TEAM_ID: str = "TEAM_ID"
+
+# Regulation / OT period length (seconds) for clock ↔ rotation alignment
+REGULATION_PERIOD_SECONDS: int = 12 * 60
+OT_PERIOD_SECONDS: int = 5 * 60
+ROTATION_API_DECISECONDS_PER_SECOND: int = 10
+
+# Possession row provenance labels (interim possessions table)
+POSSESSION_SOURCE_PBPSTATS: str = "pbpstats"
+POSSESSION_SOURCE_EVENTS_ROTATION: str = "events_rotation"
+
+# Interim hive table for possession / stint rows
+INTERIM_TABLE_POSSESSIONS: str = "possessions"
+
+# Dev ingest cap: each game needs PBP + rotation HTTP calls (2× per game minimum).
+# Full season (~1,230 games) exceeds polite stats.nba.com pacing for local iteration;
+# cap keeps ``ingest --tier impact`` usable during development (see REQUEST_* policy).
+INGEST_IMPACT_MAX_GAMES_DEV: int = 50
+
 # Box-score columns used in MVP visuals / feature eligibility
 PLAYER_STAT_PTS: str = "PTS"
 PLAYER_STAT_USG_PCT: str = "USG_PCT"
