@@ -11,6 +11,8 @@ from nba_fit.data.client import NBAClient
 from nba_fit.data.ingest import run_ingest
 from nba_fit.data.registry import ProbeRegistry
 from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID
+from nba_fit.models.role_context import train_roles_for_season
+from nba_fit.scoring.archetype_board import archetype_board_for_team
 from nba_fit.scoring.fit_card import fit_card_to_json
 from nba_fit.scoring.ranker import FitRanker
 
@@ -128,6 +130,54 @@ def _cmd_rank_player(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_train_roles(args: argparse.Namespace) -> int:
+    season = args.season or get_settings().default_season
+    print(f"Training Option B role model season={season}...")
+    try:
+        role_ctx = train_roles_for_season(
+            season,
+            prefer_interim=not args.synthetic,
+            prefer_api=not args.synthetic,
+            synthetic=args.synthetic,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"train-roles failed: {exc}", file=sys.stderr)
+        return 1
+    from nba_fit.models.role_embeddings import role_embedding_dir
+
+    out_dir = role_embedding_dir(season)
+    n_labels = len(set(role_ctx.archetypes.archetype_labels))
+    print(f"  players: {len(role_ctx.embeddings.player_ids)}")
+    print(f"  archetypes: {n_labels} cluster labels")
+    print(f"  embedding dim: {role_ctx.embeddings.n_components}")
+    print(f"  saved: {out_dir}")
+    return 0
+
+
+def _cmd_archetype_board(args: argparse.Namespace) -> int:
+    team_id = int(args.team_id)
+    season = args.season or get_settings().default_season
+    try:
+        board = archetype_board_for_team(
+            team_id,
+            season,
+            top_n=args.top,
+            prefer_interim=not args.synthetic,
+            prefer_api=not args.synthetic,
+            synthetic=args.synthetic,
+            force_retrain=args.retrain,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"archetype-board failed: {exc}", file=sys.stderr)
+        return 1
+    if board.empty:
+        print(f"No archetype board for team_id={team_id} (season={season})", file=sys.stderr)
+        return 1
+    print(f"Archetype target board — team {team_id} ({season})")
+    print(board.to_string(index=False))
+    return 0
+
+
 def _cmd_rank_team(args: argparse.Namespace) -> int:
     team_id = int(args.team_id)
     ranker = FitRanker.from_season(
@@ -230,6 +280,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use deterministic synthetic vectors (offline)",
     )
     rank_t.set_defaults(func=_cmd_rank_team)
+
+    train_roles = sub.add_parser(
+        "train-roles",
+        help="Train Option B role embeddings, archetypes, team need, and NN comps",
+    )
+    train_roles.add_argument("--season", default=get_settings().default_season)
+    train_roles.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Use deterministic synthetic vectors (offline)",
+    )
+    train_roles.set_defaults(func=_cmd_train_roles)
+
+    archetype = sub.add_parser(
+        "archetype-board",
+        help="Rank players by team need × role fit for a team",
+    )
+    archetype.add_argument(
+        "team_id",
+        type=int,
+        help="NBA team ID (e.g. 1610612747 Lakers)",
+    )
+    archetype.add_argument("--season", default=get_settings().default_season)
+    archetype.add_argument("--top", type=int, default=15, help="Show top N players")
+    archetype.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Use deterministic synthetic vectors (offline)",
+    )
+    archetype.add_argument(
+        "--retrain",
+        action="store_true",
+        help="Retrain and persist role model even if artifacts exist",
+    )
+    archetype.set_defaults(func=_cmd_archetype_board)
 
     return parser
 

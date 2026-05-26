@@ -69,7 +69,8 @@ def test_fit_card_structure(context: SeasonFitContext) -> None:
     card = build_fit_card(DEMO_PLAYER_ID, DEMO_TEAM_ID, table, context)
     assert card["player_id"] == DEMO_PLAYER_ID
     assert card["team_id"] == DEMO_TEAM_ID
-    assert card["comps"] == []
+    assert "comps" in card
+    assert "archetype" in card
     assert set(card["submetrics"].keys()) == set(SUBMETRIC_NAMES)
     assert card["overall_fit_percentile"] is not None
 

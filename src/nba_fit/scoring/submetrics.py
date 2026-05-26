@@ -6,7 +6,10 @@ from typing import Mapping
 
 import numpy as np
 
+from nba_fit.features.team_need import TeamNeedProfile
 from nba_fit.features.vectors import PlayerVector, TeamVector
+from nba_fit.models.archetypes import ArchetypeArtifacts
+from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts
 from nba_fit.scoring.constants import (
     PLAYER_DEF_GROUPS,
     PLAYER_OFF_GROUPS,
@@ -20,24 +23,10 @@ from nba_fit.scoring.constants import (
     TEAM_SHOT_NEED_GROUPS,
     TEAM_USAGE_GROUPS,
 )
+from nba_fit.scoring._similarity import cosine_similarity as _cosine_similarity
+from nba_fit.scoring._similarity import sigmoid as _sigmoid
 
 _SIGMOID_SCALE = 0.75
-
-
-def _sigmoid(x: float) -> float:
-    return float(1.0 / (1.0 + np.exp(-x)))
-
-
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    if len(a) == 0 or len(b) == 0:
-        return 0.5
-    n = min(len(a), len(b))
-    a, b = a[:n], b[:n]
-    na = np.linalg.norm(a)
-    nb = np.linalg.norm(b)
-    if na < 1e-9 or nb < 1e-9:
-        return 0.5
-    return float(np.clip(np.dot(a, b) / (na * nb), -1.0, 1.0))
 
 
 def _complementarity_score(
@@ -124,8 +113,12 @@ def replacement_upgrade(player: PlayerVector, team: TeamVector) -> float:
 def compute_all_submetrics(
     player: PlayerVector,
     team: TeamVector,
+    *,
+    team_need: TeamNeedProfile | None = None,
+    embeddings: RoleEmbeddingArtifacts | None = None,
+    archetypes: ArchetypeArtifacts | None = None,
 ) -> dict[str, float]:
-    return {
+    out = {
         "offensive_fit": offensive_fit(player, team),
         "defensive_fit": defensive_fit(player, team),
         "role_alignment": role_alignment(player, team),
@@ -134,6 +127,18 @@ def compute_all_submetrics(
         "spacing_gravity_fit": spacing_gravity_fit(player, team),
         "replacement_upgrade": replacement_upgrade(player, team),
     }
+    from nba_fit.scoring.role_fit import team_need_fit
+
+    if team_need is not None:
+        out["team_need_fit"] = team_need_fit(
+            player,
+            team_need,
+            embeddings=embeddings,
+            archetypes=archetypes,
+        )
+    else:
+        out["team_need_fit"] = 0.5
+    return out
 
 
 def weighted_raw_score(submetrics: Mapping[str, float], weights: Mapping[str, float]) -> float:

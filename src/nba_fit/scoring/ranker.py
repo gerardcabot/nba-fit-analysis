@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from nba_fit.features.season_context import SeasonFitContext
+from nba_fit.models.role_context import RoleFitContext
 from nba_fit.scoring.fit_card import build_fit_card
 from nba_fit.scoring.fit_index import FitIndexTable, build_fit_index_table
 
@@ -80,8 +81,20 @@ class FitRanker:
             out = out.head(top_n)
         return out.reset_index(drop=True)
 
-    def fit_card(self, player_id: int, team_id: int) -> dict:
-        return build_fit_card(player_id, team_id, self.table, self.context)
+    def fit_card(
+        self,
+        player_id: int,
+        team_id: int,
+        *,
+        role_context: RoleFitContext | None = None,
+    ) -> dict:
+        return build_fit_card(
+            player_id,
+            team_id,
+            self.table,
+            self.context,
+            role_context=role_context,
+        )
 
 
 def rank_destinations_for_player(
