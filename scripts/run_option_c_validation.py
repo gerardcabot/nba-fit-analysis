@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -21,6 +22,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
+
+_SRC = str(REPO_ROOT / "src")
+
+
+def _subprocess_env() -> dict[str, str]:
+    """Pin imports to this repo so a different editable install cannot hijack CLI."""
+    env = os.environ.copy()
+    prefix = _SRC
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = prefix if not existing else f"{prefix}{os.pathsep}{existing}"
+    return env
 
 
 def _log(lines: list[str], msg: str) -> None:
@@ -42,6 +54,7 @@ def _run_cmd(
         cwd=cwd or REPO_ROOT,
         capture_output=True,
         text=True,
+        env=_subprocess_env(),
     )
     if proc.stdout:
         _log(lines, proc.stdout.rstrip())
@@ -76,6 +89,21 @@ def _possessions_ready(season: str) -> bool:
     return part.exists() and any(part.rglob("*.parquet"))
 
 
+def _lineups_have_ratings(season: str) -> bool:
+    """True when interim lineup_units includes non-zero Advanced OFF_RATING."""
+    if not _interim_ready(season):
+        return False
+    import pandas as pd
+
+    from nba_fit.normalize.lineups import load_lineup_units_table
+
+    df = load_lineup_units_table(season)
+    if "OFF_RATING" not in df.columns:
+        return False
+    off = pd.to_numeric(df["OFF_RATING"], errors="coerce").fillna(0.0)
+    return bool((off.abs() > 1e-6).any())
+
+
 def _run_pytest(lines: list[str]) -> None:
     cmd = [
         sys.executable,
@@ -87,7 +115,13 @@ def _run_pytest(lines: list[str]) -> None:
     ]
     display = " ".join(cmd)
     _log(lines, f"\n$ {display}")
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=_subprocess_env(),
+    )
     if proc.stdout:
         _log(lines, proc.stdout.rstrip())
     if proc.stderr:
@@ -204,6 +238,12 @@ def main() -> int:
     if not _interim_ready(SEASON):
         _run_cmd(log_lines, ["ingest", "--tier", "mvp", "--season", SEASON])
         _run_cmd(log_lines, ["ingest", "--tier", "role", "--season", SEASON])
+    elif not _lineups_have_ratings(SEASON):
+        _log(
+            log_lines,
+            f"Re-ingesting role tier — lineup_units missing Advanced OFF/DEF ratings for {SEASON}",
+        )
+        _run_cmd(log_lines, ["ingest", "--tier", "role", "--season", SEASON])
     else:
         _log(log_lines, f"Skipping mvp/role ingest — interim tables cached for {SEASON}")
 
@@ -284,6 +324,15 @@ def main() -> int:
         "projected_net_rating_delta": sim.projected_net_rating_delta,
         "data_source": sim.data_source,
     }
+    metrics["lineup_deltas"] = [
+        {
+            "lineup_key": u.lineup_key,
+            "lineup_label": u.lineup_label,
+            "projected_net_rating_delta": u.projected_net_rating_delta,
+            "minutes": u.minutes,
+        }
+        for u in sim.top_lineups
+    ]
     metrics["figures"] = figure_paths
     metrics["finished_at"] = datetime.now(timezone.utc).isoformat()
 

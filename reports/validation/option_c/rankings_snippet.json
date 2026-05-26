@@ -137,7 +137,7 @@
     "comps_note": "Nearest-neighbor comps in role embedding space (Option B)",
     "data_source": "interim",
     "lineup_synergy": {
-      "projected_net_rating_delta": 0.0,
+      "projected_net_rating_delta": 0.2963796764838695,
       "top_lineups": [
         {
           "lineup_key": "team_1610612747_swap",
@@ -146,7 +146,7 @@
             2544
           ],
           "baseline_net_rating": 0.0,
-          "projected_net_rating_delta": 0.0,
+          "projected_net_rating_delta": 0.2963796764838695,
           "minutes": 1.0,
           "replaced_player_id": 1642439
         }
@@ -154,6 +154,6 @@
       "data_source": "lineup_units",
       "note": "Minute-weighted lineup deltas from RAPM swap + optional embedding lineup model (train roles + ingest --tier role for live data)."
     },
-    "projected_net_rating_delta": 0.0
+    "projected_net_rating_delta": 0.2963796764838695
   }
 }
