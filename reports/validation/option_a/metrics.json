@@ -1,0 +1,99 @@
+{
+  "generated_at_utc": "2026-05-26T20:32:04Z",
+  "season": "2024-25",
+  "ingest_ok": true,
+  "data_source": "interim",
+  "used_synthetic_fallback": false,
+  "n_players": 569,
+  "n_teams": 30,
+  "ingest": {
+    "season": "2024-25",
+    "tier": "mvp",
+    "player_rows": 569,
+    "team_rows": 30,
+    "players_path": "data/interim/players/season=2024-25/data.parquet",
+    "teams_path": "data/interim/teams/season=2024-25/data.parquet",
+    "endpoints": {
+      "leaguedashplayerstats": 569,
+      "leaguedashteamstats": 30,
+      "playerestimatedmetrics": 569,
+      "teamestimatedmetrics": 30,
+      "leaguedashplayerbiostats": 569,
+      "leaguedashplayershotlocations": 569,
+      "leaguedashteamshotlocations": 30
+    }
+  },
+  "api_notes": [],
+  "player_id": 2544,
+  "team_id": 1610612747,
+  "submetric_top5_destinations": {
+    "offensive_fit": {
+      "mean": 0.4643,
+      "std": 0.0267
+    },
+    "defensive_fit": {
+      "mean": 0.5035,
+      "std": 0.0292
+    },
+    "role_alignment": {
+      "mean": 0.7084,
+      "std": 0.0529
+    },
+    "usage_compatibility": {
+      "mean": 0.2859,
+      "std": 0.0568
+    },
+    "shot_profile_fit": {
+      "mean": 0.5003,
+      "std": 0.0111
+    },
+    "spacing_gravity_fit": {
+      "mean": 0.5003,
+      "std": 0.0111
+    },
+    "replacement_upgrade": {
+      "mean": 0.5898,
+      "std": 0.0109
+    }
+  },
+  "pytest_exit_code": 0,
+  "pytest_pass_count": 11,
+  "pytest_summary": "11 passed in 8.04s",
+  "top3_player_destinations": [
+    {
+      "rank": 1,
+      "team_id": 1610612755,
+      "team": "Philadelphia 76ers",
+      "overall_fit_percentile": 67.68892794376099
+    },
+    {
+      "rank": 2,
+      "team_id": 1610612742,
+      "team": "Dallas Mavericks",
+      "overall_fit_percentile": 58.80199179847686
+    },
+    {
+      "rank": 3,
+      "team_id": 1610612740,
+      "team": "New Orleans Pelicans",
+      "overall_fit_percentile": 57.85881663737551
+    }
+  ],
+  "top3_team_targets": [
+    {
+      "rank": 1,
+      "player_id": 1630548,
+      "overall_fit_percentile": 84.34387814879906
+    },
+    {
+      "rank": 2,
+      "player_id": 1630198,
+      "overall_fit_percentile": 82.32278851786761
+    },
+    {
+      "rank": 3,
+      "player_id": 1629652,
+      "overall_fit_percentile": 79.59285295840657
+    }
+  ]
+}
