@@ -1,6 +1,6 @@
 # Option B validation run log
 
-- **Started (UTC):** 2026-05-26T21:47:57Z
+- **Started (UTC):** 2026-05-26T22:16:14Z
 - **Season:** 2024-25
 
 ## Commands
@@ -15,18 +15,18 @@
 
 ## Ingest (MVP)
 
-[2026-05-26T21:47:59Z] Ingest tier=mvp done in 2.0s (endpoints=['leaguedashplayerstats', 'leaguedashteamstats', 'playerestimatedmetrics', 'teamestimatedmetrics', 'leaguedashplayerbiostats', 'leaguedashplayershotlocations', 'leaguedashteamshotlocations'])
+[2026-05-26T22:16:15Z] Ingest tier=mvp done in 0.6s (endpoints=['leaguedashplayerstats', 'leaguedashteamstats', 'playerestimatedmetrics', 'teamestimatedmetrics', 'leaguedashplayerbiostats', 'leaguedashplayershotlocations', 'leaguedashteamshotlocations'])
 
 ## Ingest (role — 30 teams × team-scoped endpoints)
 
-[2026-05-26T21:47:59Z] Role tier: 4 endpoints, ~30 teams each for 3 team-scoped pulls (cache speeds repeat runs).
-[2026-05-26T21:47:59Z] Role interim tables already present; skipping role-tier re-ingest.
+[2026-05-26T22:16:15Z] Role tier: 4 endpoints, ~30 teams each for 3 team-scoped pulls (cache speeds repeat runs).
+[2026-05-26T22:16:15Z] Role interim tables already present; skipping role-tier re-ingest.
 - **Status:** pass
 
 ## train-roles (live interim)
 
-[2026-05-26T21:47:59Z] Training role embeddings + archetypes from interim tables...
-[2026-05-26T21:48:09Z] train-roles done in 10.3s — 569 players, 6 archetype labels
+[2026-05-26T22:16:15Z] Training role embeddings + archetypes from interim tables...
+[2026-05-26T22:16:21Z] train-roles done in 5.5s — 569 players, 6 archetype labels
 - **Players embedded:** 569
 - **Archetype labels (unique):** 6
 
@@ -67,17 +67,17 @@ tests/test_archetypes.py::test_gmm_archetype_count
     return fit_method(estimator, *args, **kwargs)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-10 passed, 16 warnings in 59.98s
+10 passed, 16 warnings in 15.43s
 ```
 - **Exit code:** 0
 
 ## Visual tests
 
-[2026-05-26T21:55:49Z] Visual test 06_onoff_minutes...
-[2026-05-26T21:55:54Z]   06_onoff_minutes exit=0 figures=1
-[2026-05-26T21:55:54Z] Visual test 07_archetype_map...
-[2026-05-26T21:56:02Z]   07_archetype_map exit=0 figures=1
-[2026-05-26T21:56:02Z] Visual test 08_team_need_radar...
-[2026-05-26T21:56:08Z]   08_team_need_radar exit=0 figures=1
+[2026-05-26T22:19:44Z] Visual test 06_onoff_minutes...
+[2026-05-26T22:19:44Z]   06_onoff_minutes exit=0 figures=1
+[2026-05-26T22:19:44Z] Visual test 07_archetype_map...
+[2026-05-26T22:19:46Z]   07_archetype_map exit=0 figures=1
+[2026-05-26T22:19:46Z] Visual test 08_team_need_radar...
+[2026-05-26T22:19:47Z]   08_team_need_radar exit=0 figures=1
 
-- **Finished (UTC):** 2026-05-26T21:56:08Z
+- **Finished (UTC):** 2026-05-26T22:19:47Z
