@@ -21,6 +21,7 @@ data/features/
 reports/figures/
 
 # IDE / OS
+.cursor/
 .idea/
 .vscode/
 .DS_Store
