@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from nba_fit.features.season_context import SeasonFitContext
+from nba_fit.models.impact_context import ImpactFitContext
 from nba_fit.models.role_context import RoleFitContext
 from nba_fit.scoring.constants import SUBMETRIC_NAMES, SUBMETRIC_WEIGHTS
 from nba_fit.scoring.submetrics import compute_all_submetrics, weighted_raw_score
@@ -50,6 +51,7 @@ def build_fit_index_table(
     context: SeasonFitContext,
     *,
     role_context: RoleFitContext | None = None,
+    impact_context: ImpactFitContext | None = None,
 ) -> FitIndexTable:
     """Score every player×team pair and calibrate percentiles for the season."""
     if role_context is None:
@@ -57,6 +59,12 @@ def build_fit_index_table(
             role_context = RoleFitContext.from_synthetic(context)
         except ValueError:
             role_context = None
+
+    if impact_context is None and role_context is not None:
+        try:
+            impact_context = ImpactFitContext.from_synthetic(role_context)
+        except ValueError:
+            impact_context = None
 
     rows: list[dict[str, float | int | str]] = []
     for player in context.players.values():
@@ -70,9 +78,12 @@ def build_fit_index_table(
                 team_need=team_need,
                 embeddings=role_context.embeddings if role_context else None,
                 archetypes=role_context.archetypes if role_context else None,
+                impact_context=impact_context,
             )
             if "team_need_fit" not in sub:
                 sub["team_need_fit"] = 0.5
+            if "lineup_impact_fit" not in sub:
+                sub["lineup_impact_fit"] = 0.5
             raw = weighted_raw_score(sub, SUBMETRIC_WEIGHTS)
             row: dict[str, float | int | str] = {
                 "player_id": player.player_id,

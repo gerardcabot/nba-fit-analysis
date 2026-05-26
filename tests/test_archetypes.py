@@ -14,6 +14,7 @@ from nba_fit.models.archetypes import (
 )
 from nba_fit.models.constants import (
     ARCHETYPE_N_COMPONENTS,
+    LINEUP_IMPACT_WEIGHT,
     ROLE_EMBEDDING_N_COMPONENTS,
     ROLE_FIT_WEIGHT,
 )
@@ -87,7 +88,9 @@ def test_submetrics_include_team_need_fit(role_context: RoleFitContext, context:
 
 def test_weights_include_role_fit_and_sum_to_one() -> None:
     assert "team_need_fit" in SUBMETRIC_WEIGHTS
+    assert "lineup_impact_fit" in SUBMETRIC_WEIGHTS
     assert SUBMETRIC_WEIGHTS["team_need_fit"] == pytest.approx(ROLE_FIT_WEIGHT)
+    assert SUBMETRIC_WEIGHTS["lineup_impact_fit"] == pytest.approx(LINEUP_IMPACT_WEIGHT)
     assert abs(sum(SUBMETRIC_WEIGHTS.values()) - 1.0) < 1e-9
 
 

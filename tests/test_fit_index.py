@@ -66,11 +66,19 @@ def test_rank_team_orders_players(context: SeasonFitContext) -> None:
 
 def test_fit_card_structure(context: SeasonFitContext) -> None:
     table = build_fit_index_table(context)
-    card = build_fit_card(DEMO_PLAYER_ID, DEMO_TEAM_ID, table, context)
+    card = build_fit_card(
+        DEMO_PLAYER_ID,
+        DEMO_TEAM_ID,
+        table,
+        context,
+        lineup_synthetic=True,
+    )
     assert card["player_id"] == DEMO_PLAYER_ID
     assert card["team_id"] == DEMO_TEAM_ID
     assert "comps" in card
     assert "archetype" in card
+    assert "lineup_synergy" in card
+    assert "projected_net_rating_delta" in card
     assert set(card["submetrics"].keys()) == set(SUBMETRIC_NAMES)
     assert card["overall_fit_percentile"] is not None
 

@@ -117,6 +117,7 @@ def compute_all_submetrics(
     team_need: TeamNeedProfile | None = None,
     embeddings: RoleEmbeddingArtifacts | None = None,
     archetypes: ArchetypeArtifacts | None = None,
+    impact_context: object | None = None,
 ) -> dict[str, float]:
     out = {
         "offensive_fit": offensive_fit(player, team),
@@ -138,6 +139,26 @@ def compute_all_submetrics(
         )
     else:
         out["team_need_fit"] = 0.5
+
+    from nba_fit.scoring.lineup_fit import lineup_impact_for_pair
+
+    impact_ctx = impact_context
+    if impact_ctx is not None:
+        fit_score, _delta = lineup_impact_for_pair(
+            player,
+            team.team_id,
+            rapm=impact_ctx.rapm,
+            lineup_stints=impact_ctx.lineup_stints,
+            lineup_model=impact_ctx.lineup_model,
+            embeddings=impact_ctx.embeddings,
+            player_team_map=impact_ctx.player_team_map,
+            rotation_minutes=impact_ctx.rotation_minutes,
+        )
+        out["lineup_impact_fit"] = fit_score
+    else:
+        from nba_fit.models.constants import LINEUP_IMPACT_NEUTRAL_SCORE
+
+        out["lineup_impact_fit"] = LINEUP_IMPACT_NEUTRAL_SCORE
     return out
 
 

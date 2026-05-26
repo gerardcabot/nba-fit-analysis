@@ -25,6 +25,9 @@ REGULATION_GAME_MINUTES: int = 48
 # possessions; we flag low-sample players below this threshold (not a hard filter).
 MIN_POSSESSIONS_RAPM_FLAG: int = 1500
 
+# Exponential recency half-life for stint weighting (games); recent lineups count more.
+RAPM_RECENCY_HALF_LIFE_GAMES: float = 15.0
+
 # Probe / smoke-test context IDs (same as probe_all_nba_endpoints.py)
 DEFAULT_SEASON: str = "2025-26"
 DEFAULT_PLAYER_ID: int = 1629029  # Luka Doncic

@@ -17,6 +17,7 @@ from nba_fit.data.client import NBAClient
 from nba_fit.data.ingest import run_ingest
 from nba_fit.data.registry import ProbeRegistry
 from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID
+from nba_fit.models.impact_context import train_impact_for_season
 from nba_fit.models.role_context import train_roles_for_season
 from nba_fit.scoring.archetype_board import archetype_board_for_team
 from nba_fit.scoring.fit_card import fit_card_to_json
@@ -175,6 +176,35 @@ def _cmd_train_roles(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_train_impact(args: argparse.Namespace) -> int:
+    season = args.season or get_settings().default_season
+    print(f"Training Option C impact models season={season}...")
+    try:
+        impact_ctx = train_impact_for_season(
+            season,
+            prefer_interim=not args.synthetic,
+            synthetic=args.synthetic,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"train-impact failed: {exc}", file=sys.stderr)
+        return 1
+    from nba_fit.models.lineup_model import lineup_model_dir
+    from nba_fit.models.rapm import rapm_dir
+
+    rapm_out = rapm_dir(impact_ctx.season)
+    lineup_out = lineup_model_dir(impact_ctx.season)
+    low_n = int(impact_ctx.rapm.low_sample_flag.sum())
+    print(f"  rapm players: {len(impact_ctx.rapm.player_ids)} ({low_n} low-sample flags)")
+    print(
+        f"  net rapm range: {impact_ctx.rapm.net_rapm.min():.2f} "
+        f".. {impact_ctx.rapm.net_rapm.max():.2f}"
+    )
+    print(f"  lineup model penalty: {impact_ctx.lineup_model.penalty}")
+    print(f"  saved rapm: {rapm_out}")
+    print(f"  saved lineup_model: {lineup_out}")
+    return 0
+
+
 def _cmd_archetype_board(args: argparse.Namespace) -> int:
     team_id = int(args.team_id)
     season = args.season or get_settings().default_season
@@ -326,6 +356,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use deterministic synthetic vectors (offline)",
     )
     train_roles.set_defaults(func=_cmd_train_roles)
+
+    train_impact = sub.add_parser(
+        "train-impact",
+        help="Train Option C RAPM + lineup net-rating models",
+    )
+    train_impact.add_argument("--season", default=get_settings().default_season)
+    train_impact.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Use deterministic synthetic lineup stints (offline)",
+    )
+    train_impact.set_defaults(func=_cmd_train_impact)
 
     archetype = sub.add_parser(
         "archetype-board",

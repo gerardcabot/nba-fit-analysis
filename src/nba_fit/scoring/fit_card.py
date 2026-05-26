@@ -8,6 +8,7 @@ from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.role_context import RoleFitContext
 from nba_fit.scoring.constants import SUBMETRIC_NAMES
 from nba_fit.scoring.fit_index import FitIndexTable, get_pair_row
+from nba_fit.scoring.lineup_sim import run_lineup_sim
 from nba_fit.scoring.role_fit import team_need_fit
 
 
@@ -18,8 +19,10 @@ def build_fit_card(
     context: SeasonFitContext,
     *,
     role_context: RoleFitContext | None = None,
+    include_lineup_synergy: bool = True,
+    lineup_synthetic: bool = False,
 ) -> dict[str, Any]:
-    """Structured fit card with submetrics, archetype label, role fit, and NN comps."""
+    """Structured fit card with submetrics, role fit, lineup synergy, and NN comps."""
     row = get_pair_row(table, player_id, team_id)
     team = context.teams.get(team_id)
     team_label = team.display_name if team else str(team_id)
@@ -65,7 +68,21 @@ def build_fit_card(
             f"python -m nba_fit train-roles --season {table.season}"
         )
 
-    return {
+    lineup_synergy: dict[str, Any] | None = None
+    projected_net_rating_delta: float | None = None
+    if include_lineup_synergy:
+        sim = run_lineup_sim(
+            player_id,
+            team_id,
+            table.season,
+            prefer_interim=context.source != "synthetic",
+            prefer_api=context.source == "api",
+            synthetic=lineup_synthetic or context.source == "synthetic",
+        )
+        lineup_synergy = sim.lineup_synergy_block()
+        projected_net_rating_delta = sim.projected_net_rating_delta
+
+    card: dict[str, Any] = {
         "player_id": player_id,
         "team_id": team_id,
         "team": team_label,
@@ -80,6 +97,10 @@ def build_fit_card(
         "comps_note": comps_note,
         "data_source": context.source,
     }
+    if include_lineup_synergy:
+        card["lineup_synergy"] = lineup_synergy
+        card["projected_net_rating_delta"] = projected_net_rating_delta
+    return card
 
 
 def fit_card_to_json(card: dict[str, Any], *, indent: int = 2) -> str:

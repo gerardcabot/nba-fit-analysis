@@ -17,7 +17,7 @@ from nba_fit.features.team_vector import (
     FEATURE_GROUP_SHOT_DIET,
     FEATURE_GROUP_WEAKNESSES,
 )
-from nba_fit.models.constants import ROLE_FIT_WEIGHT
+from nba_fit.models.constants import LINEUP_IMPACT_WEIGHT, ROLE_FIT_WEIGHT
 
 # Player groups used per submetric (similarity vs complementarity in comments)
 PLAYER_OFF_GROUPS: tuple[str, ...] = (
@@ -46,10 +46,10 @@ TEAM_ROLE_NEED_GROUPS: tuple[str, ...] = (FEATURE_GROUP_ROSTER_COMP,)
 # ---------------------------------------------------------------------------
 # Submetric combination weights (sum to 1.0) — basketball rationale in comments
 # ---------------------------------------------------------------------------
-# Option A weights were scaled by (1 - ROLE_FIT_WEIGHT) when adding Option B
-# ``team_need_fit`` so the ensemble still sums to 1.0.
+# Option A weights scaled by (1 - ROLE_FIT_WEIGHT - LINEUP_IMPACT_WEIGHT) when
+# adding Option B ``team_need_fit`` and Option C ``lineup_impact_fit``.
 
-_OPTION_A_SCALE = 1.0 - ROLE_FIT_WEIGHT
+_OPTION_A_SCALE = 1.0 - ROLE_FIT_WEIGHT - LINEUP_IMPACT_WEIGHT
 
 SUBMETRIC_WEIGHTS: dict[str, float] = {
     # Complementarity: offensive production vs team offensive weaknesses.
@@ -68,6 +68,8 @@ SUBMETRIC_WEIGHTS: dict[str, float] = {
     "replacement_upgrade": 0.14 * _OPTION_A_SCALE,
     # Option B: learned archetype gaps + lineup weakness proxies (role_fit.py).
     "team_need_fit": ROLE_FIT_WEIGHT,
+    # Option C: projected net rating delta vs bottom-rotation replacement (lineup_fit.py).
+    "lineup_impact_fit": LINEUP_IMPACT_WEIGHT,
 }
 
 assert abs(sum(SUBMETRIC_WEIGHTS.values()) - 1.0) < 1e-9
