@@ -305,17 +305,19 @@ def run_movement_backtest(
             method=calibration_method,  # type: ignore[arg-type]
         )
         # Uncertainty per row from submetrics
-        unc_rows = []
+        unc_low: list[float] = []
+        unc_high: list[float] = []
+        unc_disagree: list[float] = []
+        unc_penalty: list[float] = []
         for _, r in labeled.iterrows():
-            u = uncertainty_from_submetrics(r, minutes=float(r["pre_move_minutes"]))
-            unc_rows.append(
-                {
-                    "uncertainty_ci_low": u.ci_low,
-                    "uncertainty_ci_high": u.ci_high,
-                    "uncertainty_disagreement": u.disagreement_std,
-                    "uncertainty_sample_penalty": u.sample_penalty,
-                }
-            )
-        labeled = pd.concat([labeled, pd.DataFrame(unc_rows)], axis=1)
+            u = uncertainty_from_submetrics(r)
+            unc_low.append(u.ci_low)
+            unc_high.append(u.ci_high)
+            unc_disagree.append(u.disagreement_std)
+            unc_penalty.append(u.sample_penalty)
+        labeled["uncertainty_ci_low"] = unc_low
+        labeled["uncertainty_ci_high"] = unc_high
+        labeled["uncertainty_disagreement"] = unc_disagree
+        labeled["uncertainty_sample_penalty"] = unc_penalty
 
     return MovementBacktestResult(season=season, rows=labeled, calibrator=calibrator)

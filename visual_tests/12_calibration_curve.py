@@ -47,7 +47,8 @@ def _reliability_bins(
 def main() -> int:
     season = "2025-26"
     context = SeasonFitContext.from_synthetic(season, n_players=60)
-    movements = synthetic_movements(season, n_moves=12)
+    player_ids = tuple(list(context.players.keys())[:8])
+    movements = synthetic_movements(season, player_ids=player_ids, n_moves=12)
     result = run_movement_backtest(context, movements, calibrate=True)
     cal = result.calibration_frame()
 

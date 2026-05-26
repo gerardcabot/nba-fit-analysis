@@ -186,6 +186,14 @@ def fit_uncertainty(
     )
 
 
+def _series_scalar(value: object) -> float:
+    """Coerce a DataFrame row value (possibly duplicate columns) to float."""
+    if isinstance(value, pd.Series):
+        value = value.iloc[0]
+    arr = np.asarray(value, dtype=float)
+    return float(arr.ravel()[0])
+
+
 def uncertainty_from_submetrics(
     row: pd.Series,
     *,
@@ -193,18 +201,27 @@ def uncertainty_from_submetrics(
     weights: dict[str, float] | None = None,
 ) -> UncertaintyResult:
     """Build model matrix from fit submetric columns on a pair row."""
-    from nba_fit.scoring.constants import SUBMETRIC_NAMES, SUBMETRIC_WEIGHTS
+    from nba_fit.scoring.constants import SUBMETRIC_NAMES
 
-    w = weights or SUBMETRIC_WEIGHTS
     keys = [k for k in DEFAULT_MODEL_KEYS if k in row.index]
     if not keys:
-        keys = [f"ensemble_{k}" for k in ("profile_fit", "role_fit", "team_need_fit", "projected_impact", "replacement_upgrade") if f"ensemble_{k}" in row.index]
+        keys = [
+            f"ensemble_{k}"
+            for k in (
+                "profile_fit",
+                "role_fit",
+                "team_need_fit",
+                "projected_impact",
+                "replacement_upgrade",
+            )
+            if f"ensemble_{k}" in row.index
+        ]
     if not keys:
         keys = [k for k in SUBMETRIC_NAMES if k in row.index]
-    scores = np.array([[float(row[k]) for k in keys]], dtype=float)
+    scores = np.array([[_series_scalar(row[k]) for k in keys]], dtype=float)
     mins = minutes
     if mins is None and "pre_move_minutes" in row.index:
-        mins = float(row["pre_move_minutes"])
+        mins = _series_scalar(row["pre_move_minutes"])
     if mins is None:
         mins = 800.0
     return fit_uncertainty(scores, minutes=mins)

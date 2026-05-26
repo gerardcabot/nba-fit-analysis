@@ -252,7 +252,7 @@ def synthetic_movements(
     teams = (1610612747, 1610612748, 1610612752, 1610612738)
     rows: list[dict[str, Any]] = []
     base_date = pd.Timestamp(f"{season.split('-')[0]}-11-01")
-    for i in range(min(n_moves, len(player_ids))):
+    for i in range(n_moves):
         pid = player_ids[i % len(player_ids)]
         from_t = teams[i % len(teams)]
         to_t = teams[(i + 1) % len(teams)]
