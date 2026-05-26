@@ -78,7 +78,7 @@ def main() -> int:
         return 1
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    apply_plot_style(ax)
+    apply_plot_style()
     ax.hist(counts.values, bins=min(20, len(counts)), color="#4C72B0", edgecolor="black")
     expected = POSSESSIONS_PER_TEAM_PER_GAME_REGULATION * 2
     ax.axvline(expected, color="#C44E52", linestyle="--", label=f"~{expected:.0f} total/game (2 teams)")
