@@ -7,3 +7,4 @@ export PYTHONPATH := $(REPO_ROOT)
 visual-tests:
 	$(PYTHON) visual_tests/01_endpoint_health.py
 	$(PYTHON) visual_tests/02_pbp_schema.py
+	$(PYTHON) visual_tests/03_player_stat_distributions.py
