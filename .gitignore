@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Data & models (large; regenerate via pipeline)
+data/raw/
+data/interim/
+data/features/
+models/
+reports/figures/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Probe artifacts (regenerable)
+probe_run_*.json
+
+# Jupyter
+.ipynb_checkpoints/
