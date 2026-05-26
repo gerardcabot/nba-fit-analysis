@@ -7,6 +7,12 @@ from nba_fit.data.fetchers.league_dash import (
     primary_dataset_name,
     primary_frame,
 )
+from nba_fit.data.fetchers.lineups_onoff import (
+    fetch_lineup_onoff,
+    fetch_option_b_role,
+    lineup_onoff_kwargs,
+    lineup_units_frame,
+)
 
 __all__ = [
     "fetch_league_dash",
@@ -14,4 +20,8 @@ __all__ = [
     "league_dash_kwargs",
     "primary_dataset_name",
     "primary_frame",
+    "fetch_lineup_onoff",
+    "fetch_option_b_role",
+    "lineup_onoff_kwargs",
+    "lineup_units_frame",
 ]

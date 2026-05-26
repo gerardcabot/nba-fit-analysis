@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY, ESSENTIAL_ENDPOINTS
-from nba_fit.config.settings import INGEST_TIER_MVP, get_settings
+from nba_fit.config.settings import INGEST_TIER_MVP, INGEST_TIER_ROLE, get_settings
 from nba_fit.data.client import NBAClient
 from nba_fit.data.ingest import run_ingest
 from nba_fit.data.registry import ProbeRegistry
@@ -61,8 +61,14 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         print(f"Ingest failed: {exc}", file=sys.stderr)
         return 1
 
-    print(f"  players: {result.player_rows} rows -> {result.players_path}")
-    print(f"  teams:   {result.team_rows} rows -> {result.teams_path}")
+    if result.players_path:
+        print(f"  players: {result.player_rows} rows -> {result.players_path}")
+    if result.teams_path:
+        print(f"  teams:   {result.team_rows} rows -> {result.teams_path}")
+    if result.lineup_units_path:
+        print(f"  lineup_units: {result.lineup_units_rows} rows -> {result.lineup_units_path}")
+    if result.onoff_path:
+        print(f"  onoff:   {result.onoff_rows} rows -> {result.onoff_path}")
     for endpoint, fetch in result.fetched.items():
         rows = sum(len(df) for df in fetch.frames.values())
         cache_flag = "cache" if fetch.from_cache else "live"
@@ -163,7 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ingest = sub.add_parser(
         "ingest",
-        help="Fetch Option A league-dash endpoints and write interim Parquet",
+        help="Fetch ingest-tier endpoints and write interim Parquet",
     )
     ingest.add_argument(
         "--season",
@@ -173,8 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument(
         "--tier",
         default=INGEST_TIER_MVP,
-        choices=[INGEST_TIER_MVP],
-        help="Ingest bundle (mvp = Option A league-dash core)",
+        choices=[INGEST_TIER_MVP, INGEST_TIER_ROLE],
+        help="Ingest bundle (mvp = Option A; role = Option B lineups/on-off)",
     )
     ingest.add_argument("--no-cache", action="store_true", help="Bypass Parquet cache")
     ingest.set_defaults(func=_cmd_ingest)

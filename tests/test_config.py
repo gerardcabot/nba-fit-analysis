@@ -3,8 +3,11 @@
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY, ESSENTIAL_ENDPOINTS
 from nba_fit.config.settings import (
     INGEST_TIER_MVP,
+    INGEST_TIER_ROLE,
     MIN_SEASON_MINUTES_STABLE_RATES,
+    NBA_TEAM_IDS,
     OPTION_A_MVP_ENDPOINTS,
+    OPTION_B_ROLE_ENDPOINTS,
     POSSESSIONS_PER_TEAM_PER_GAME_REGULATION,
     get_settings,
 )
@@ -34,6 +37,14 @@ def test_option_a_mvp_ingest_bundle():
     assert "leaguedashplayerstats" in OPTION_A_MVP_ENDPOINTS
     assert "teamestimatedmetrics" in OPTION_A_MVP_ENDPOINTS
     assert len(OPTION_A_MVP_ENDPOINTS) == 7
+
+
+def test_option_b_role_ingest_bundle():
+    assert INGEST_TIER_ROLE == "role"
+    assert "teamplayeronoffsummary" in OPTION_B_ROLE_ENDPOINTS
+    assert "leaguedashlineups" in OPTION_B_ROLE_ENDPOINTS
+    assert len(OPTION_B_ROLE_ENDPOINTS) == 4
+    assert len(NBA_TEAM_IDS) == 30
 
 
 def test_canonical_ids():

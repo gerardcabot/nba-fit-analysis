@@ -67,9 +67,88 @@ LEAGUE_DASH_PRIMARY_DATASET: dict[str, str] = {
     "leaguedashteamshotlocations": "ShotLocations",
 }
 
+# ---------------------------------------------------------------------------
+# Ingest tiers (Option B — lineups, on/off, role modeling inputs)
+# ---------------------------------------------------------------------------
+
+# CLI tier name for lineup + on/off bundle (Option B data layer)
+INGEST_TIER_ROLE: str = "role"
+
+# Option B core endpoints (team-scoped pulls loop NBA_TEAM_IDS; league lineups bulk)
+OPTION_B_ROLE_ENDPOINTS: tuple[str, ...] = (
+    "teamplayeronoffsummary",
+    "teamplayeronoffdetails",
+    "leaguedashlineups",
+    "teamdashlineups",
+)
+
+# All 30 NBA franchise TEAM_ID values (stats.nba.com); used for per-team lineup/on-off pulls
+NBA_TEAM_IDS: tuple[int, ...] = (
+    1610612737,  # ATL
+    1610612738,  # BOS
+    1610612751,  # BKN
+    1610612766,  # CHA
+    1610612741,  # CHI
+    1610612739,  # CLE
+    1610612742,  # DAL
+    1610612743,  # DEN
+    1610612765,  # DET
+    1610612744,  # GSW
+    1610612745,  # HOU
+    1610612754,  # IND
+    1610612746,  # LAC
+    1610612747,  # LAL
+    1610612763,  # MEM
+    1610612748,  # MIA
+    1610612749,  # MIL
+    1610612750,  # MIN
+    1610612740,  # NOP
+    1610612752,  # NYK
+    1610612760,  # OKC
+    1610612753,  # ORL
+    1610612755,  # PHI
+    1610612756,  # PHX
+    1610612757,  # POR
+    1610612758,  # SAC
+    1610612759,  # SAS
+    1610612761,  # TOR
+    1610612762,  # UTA
+    1610612764,  # WAS
+)
+
+# Primary nba_api dataset keys for Option B endpoints (multi-frame responses)
+LINEUP_ONOFF_PRIMARY_DATASET: dict[str, str] = {
+    "leaguedashlineups": "Lineups",
+    "teamdashlineups": "Lineups",
+    "teamplayeronoffsummary": "PlayersOnCourtTeamPlayerOnOffSummary",
+    "teamplayeronoffdetails": "PlayersOnCourtTeamPlayerOnOffDetails",
+}
+
+# On/off frames to stack into interim onoff table (court status inferred from name)
+ONOFF_SUMMARY_DATASETS: tuple[str, ...] = (
+    "PlayersOnCourtTeamPlayerOnOffSummary",
+    "PlayersOffCourtTeamPlayerOnOffSummary",
+)
+ONOFF_DETAILS_DATASETS: tuple[str, ...] = (
+    "PlayersOnCourtTeamPlayerOnOffDetails",
+    "PlayersOffCourtTeamPlayerOnOffDetails",
+)
+
 # Interim table names (hive roots under data/interim/)
 INTERIM_TABLE_PLAYERS: str = "players"
 INTERIM_TABLE_TEAMS: str = "teams"
+INTERIM_TABLE_LINEUP_UNITS: str = "lineup_units"
+INTERIM_TABLE_ONOFF: str = "onoff"
+
+# On/off and lineup columns used in normalization / visuals
+ONOFF_STAT_MIN: str = "MIN"
+ONOFF_STAT_NET_RATING: str = "NET_RATING"
+ONOFF_STAT_PLUS_MINUS: str = "PLUS_MINUS"
+ONOFF_COL_VS_PLAYER_ID: str = "VS_PLAYER_ID"
+ONOFF_COL_VS_PLAYER_NAME: str = "VS_PLAYER_NAME"
+ONOFF_COL_COURT_STATUS: str = "COURT_STATUS"
+LINEUP_COL_GROUP_NAME: str = "GROUP_NAME"
+LINEUP_COL_GROUP_ID: str = "GROUP_ID"
 
 # Box-score columns used in MVP visuals / feature eligibility
 PLAYER_STAT_PTS: str = "PTS"
