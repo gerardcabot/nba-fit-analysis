@@ -1,0 +1,81 @@
+{
+  "generated_at_utc": "2026-05-26T22:12:13Z",
+  "season": "2024-25",
+  "ingest_ok": true,
+  "ingest": {
+    "mvp": {
+      "skipped": true,
+      "reason": "interim_cached"
+    },
+    "role": {
+      "skipped": true,
+      "reason": "interim_cached"
+    },
+    "impact": {
+      "skipped": true,
+      "reason": "possessions_cached"
+    }
+  },
+  "ingest_note": "",
+  "train_roles_ok": true,
+  "train_impact_ok": true,
+  "ensemble_component_weights": {
+    "profile_fit": 0.28,
+    "role_fit": 0.12,
+    "team_need_fit": 0.18,
+    "projected_impact": 0.22,
+    "replacement_upgrade": 0.2
+  },
+  "profile_submetric_weights": {
+    "offensive_fit": 0.22,
+    "defensive_fit": 0.2,
+    "usage_compatibility": 0.18,
+    "shot_profile_fit": 0.2,
+    "spacing_gravity_fit": 0.2
+  },
+  "calibration": {
+    "method": "isotonic",
+    "fitted": false
+  },
+  "backtest": {
+    "n_movements": 15,
+    "movements_synthetic": true,
+    "movements_source": "synthetic (sparse real movements)",
+    "mean_calibrated_fit_percentile": 0.4282359485654819,
+    "mean_post_move_outcome": 0.428235948565482,
+    "mean_pre_move_fit_percentile": 81.80972222222223,
+    "uncertainty": {
+      "mean_ci_low": 0.4645,
+      "mean_ci_high": 0.5845,
+      "mean_disagreement": 0.0939,
+      "mean_sample_penalty": 0.0
+    }
+  },
+  "holdout": {
+    "train_season": "2024-25",
+    "predict_season": "2025-26",
+    "train_pairs": 1200,
+    "predict_pairs": 1200,
+    "overlap_players": 40,
+    "mean_predict_percentile": 50.0,
+    "note": "Synthetic holdout smoke \u2014 train-season role/impact artifacts applied to predict-season vectors."
+  },
+  "player_id": 2544,
+  "team_id": 1610612747,
+  "ranker_data_source": "interim",
+  "overall_fit_percentile": 41.666666666666664,
+  "pytest_exit_code": 0,
+  "pytest_targets": [
+    "tests/test_ensemble.py",
+    "tests/test_fit_index.py",
+    "tests/test_movement_backtest.py",
+    "tests/test_ingest_smoke.py",
+    "tests/test_config.py"
+  ],
+  "pytest_summary": "40 passed, 30 warnings in 127.07s (0:02:07)",
+  "visual_test_figures": [
+    "reports\\validation\\option_d\\figures\\13_ensemble_weights.png",
+    "reports\\validation\\option_d\\figures\\14_dashboard_data_health.png",
+    "reports\\validation\\option_d\\figures\\12_calibration_curve.png"
+  ]
+}

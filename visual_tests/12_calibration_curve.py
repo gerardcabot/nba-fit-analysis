@@ -73,7 +73,7 @@ def main() -> int:
     ax.set_ylim(0, max(100, bin_obs.max() * 1.1))
     ax.legend(loc="lower right")
     fig.tight_layout()
-    save_figure(fig, "12_calibration_curve.png")
+    save_figure(fig, "12_calibration_curve")
     print(
         f"Saved reliability diagram ({result.n_movements} movements, "
         f"{len(bin_pred)} bins)"
