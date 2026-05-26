@@ -7,6 +7,12 @@ import numpy as np
 from nba_fit.features.team_need import TeamNeedProfile
 from nba_fit.features.vectors import PlayerVector
 from nba_fit.models.archetypes import ArchetypeArtifacts
+from nba_fit.models.constants import (
+    ROLE_FIT_ARCHETYPE_BLEND_WEIGHT,
+    ROLE_FIT_EMBEDDING_BLEND_WEIGHT,
+    ROLE_FIT_NEUTRAL_SCORE,
+    VECTOR_NORM_EPSILON,
+)
 from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts
 from nba_fit.scoring._similarity import cosine_similarity as _cosine_similarity
 from nba_fit.scoring._similarity import role_fit_sigmoid as _sigmoid
@@ -35,14 +41,14 @@ def team_need_fit(
 ) -> float:
     """Score how well a player fills a team's archetype gaps (0–1).
 
-  Combines (a) archetype-gap complementarity and (b) embedding cosine vs a
-  roster-implied need direction when embeddings are available.
+    Combines (a) archetype-gap complementarity and (b) embedding cosine vs a
+    roster-implied need direction when embeddings are available.
     """
     n_arch = team_need.n_archetypes
     gap_block = team_need.values[:n_arch] if n_arch else np.array([], dtype=float)
     weak_block = team_need.values[n_arch:] if n_arch < len(team_need.values) else np.array([], dtype=float)
 
-    arch_score = 0.5
+    arch_score = ROLE_FIT_NEUTRAL_SCORE
     if archetypes is not None and n_arch > 0:
         indicator = _player_archetype_indicator(
             player.player_id, archetypes, team_need.archetype_labels
@@ -51,7 +57,7 @@ def team_need_fit(
             raw = float(np.dot(indicator, gap_block))
             arch_score = _sigmoid(raw)
 
-    embed_score = 0.5
+    embed_score = ROLE_FIT_NEUTRAL_SCORE
     if embeddings is not None:
         emb = embeddings.embedding_for(player.player_id)
         if emb is not None and len(team_need.values) > 0:
@@ -62,15 +68,18 @@ def team_need_fit(
             if len(weak_block) > 0 and offset < len(emb):
                 tail = min(len(weak_block), len(emb) - offset)
                 need_dir[offset : offset + tail] = weak_block[:tail]
-            if np.linalg.norm(need_dir) > 1e-9:
+            if np.linalg.norm(need_dir) > VECTOR_NORM_EPSILON:
                 cos = _cosine_similarity(emb, need_dir)
                 embed_score = (cos + 1.0) / 2.0
 
     if archetypes is None and embeddings is None:
-        return 0.5
+        return ROLE_FIT_NEUTRAL_SCORE
 
     if archetypes is not None and embeddings is not None:
-        return float(0.6 * arch_score + 0.4 * embed_score)
+        return float(
+            ROLE_FIT_ARCHETYPE_BLEND_WEIGHT * arch_score
+            + ROLE_FIT_EMBEDDING_BLEND_WEIGHT * embed_score
+        )
     if archetypes is not None:
         return arch_score
     return embed_score

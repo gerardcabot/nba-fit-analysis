@@ -16,6 +16,7 @@ from nba_fit.models.constants import (
     ARCHETYPE_NOISE_LABEL,
     TEAM_NEED_ARCHETYPE_BLOCK_WEIGHT,
     TEAM_NEED_WEAKNESS_BLOCK_WEIGHT,
+    VECTOR_NORM_EPSILON,
 )
 
 
@@ -77,7 +78,7 @@ def archetype_gap_vector(
         gaps.append(max(0.0, league_share - roster_share))
     arr = np.asarray(gaps, dtype=float)
     norm = np.linalg.norm(arr)
-    if norm > 1e-9:
+    if norm > VECTOR_NORM_EPSILON:
         arr = arr / norm
     return arr
 
@@ -94,7 +95,7 @@ def weakness_proxy_vector(team: TeamVector) -> tuple[np.ndarray, tuple[str, ...]
     # Weakness columns are oriented so higher z => worse team outcome on that axis.
     positive_need = np.maximum(raw, 0.0)
     norm = np.linalg.norm(positive_need)
-    if norm > 1e-9:
+    if norm > VECTOR_NORM_EPSILON:
         positive_need = positive_need / norm
     return positive_need.astype(float), names
 

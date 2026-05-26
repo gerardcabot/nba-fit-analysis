@@ -25,6 +25,23 @@ from nba_fit.models.constants import (
     ARCHETYPE_CLUSTERER,
     ARCHETYPE_N_COMPONENTS,
     ARCHETYPE_NOISE_LABEL,
+    ARCHETYPE_THRESH_BLK,
+    ARCHETYPE_THRESH_CONNECTOR_AST,
+    ARCHETYPE_THRESH_CONNECTOR_USG_CAP,
+    ARCHETYPE_THRESH_DEF_GUARD_USG,
+    ARCHETYPE_THRESH_HIGH_AST,
+    ARCHETYPE_THRESH_HIGH_USG,
+    ARCHETYPE_THRESH_LOW_USG,
+    ARCHETYPE_THRESH_MED_AST,
+    ARCHETYPE_THRESH_MED_USG,
+    ARCHETYPE_THRESH_REB,
+    ARCHETYPE_THRESH_RIM_FREQ,
+    ARCHETYPE_THRESH_SHOOTER_FG3,
+    ARCHETYPE_THRESH_SPACER_FG3,
+    ARCHETYPE_THRESH_STL,
+    ARCHETYPE_THRESH_STRETCH_FG3,
+    ARCHETYPE_THRESH_STRETCH_REB,
+    ARCHETYPE_THRESH_VERY_LOW_USG,
     HDBSCAN_MIN_CLUSTER_SIZE,
     MODEL_RANDOM_STATE,
 )
@@ -105,25 +122,25 @@ def label_cluster_from_centroid(centroid: pd.Series) -> str:
     stl = _stem_centroid(centroid, FEATURE_GROUP_DEFENSE, "stl_pg")
     reb = _stem_centroid(centroid, FEATURE_GROUP_REBOUNDING, "reb_pct")
 
-    if usg >= 1.0 and ast >= 0.5:
+    if usg >= ARCHETYPE_THRESH_HIGH_USG and ast >= ARCHETYPE_THRESH_HIGH_AST:
         return "high_usage_creator"
-    if usg >= 0.5 and ast >= 0.3:
+    if usg >= ARCHETYPE_THRESH_MED_USG and ast >= ARCHETYPE_THRESH_MED_AST:
         return "advantage_creator"
-    if fg3 >= 0.8 and usg < 0.3:
+    if fg3 >= ARCHETYPE_THRESH_SHOOTER_FG3 and usg < ARCHETYPE_THRESH_LOW_USG:
         return "movement_shooter"
-    if fg3 >= 0.5 and usg < -0.2:
+    if fg3 >= ARCHETYPE_THRESH_SPACER_FG3 and usg < ARCHETYPE_THRESH_VERY_LOW_USG:
         return "low_usage_spacer"
-    if ast >= 0.4 and usg < 0.5:
+    if ast >= ARCHETYPE_THRESH_CONNECTOR_AST and usg < ARCHETYPE_THRESH_CONNECTOR_USG_CAP:
         return "connector_wing"
-    if blk >= 0.8 and rim >= 0.3:
+    if blk >= ARCHETYPE_THRESH_BLK and rim >= ARCHETYPE_THRESH_LOW_USG:
         return "rim_protector"
-    if rim >= 0.6 and reb >= 0.3:
+    if rim >= ARCHETYPE_THRESH_RIM_FREQ and reb >= ARCHETYPE_THRESH_LOW_USG:
         return "rim_running_big"
-    if fg3 >= 0.4 and reb >= 0.2:
+    if fg3 >= ARCHETYPE_THRESH_STRETCH_FG3 and reb >= ARCHETYPE_THRESH_STRETCH_REB:
         return "stretch_big"
-    if stl >= 0.5 and usg < 0.2:
+    if stl >= ARCHETYPE_THRESH_STL and usg < ARCHETYPE_THRESH_DEF_GUARD_USG:
         return "defensive_guard"
-    if reb >= 0.6:
+    if reb >= ARCHETYPE_THRESH_REB:
         return "rebound_finisher"
     return "versatile_forward"
 

@@ -18,7 +18,11 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 from nba_fit.features.season_context import SeasonFitContext
-from nba_fit.models.constants import ARCHETYPE_MAP_METHOD, ARCHETYPE_MAP_N_COMPONENTS
+from nba_fit.models.constants import (
+    ARCHETYPE_MAP_METHOD,
+    ARCHETYPE_MAP_N_COMPONENTS,
+    MODEL_RANDOM_STATE,
+)
 from nba_fit.models.role_context import RoleFitContext
 from visual_tests._plot_utils import apply_plot_style, save_figure
 
@@ -30,12 +34,12 @@ def _project_2d(embeddings: np.ndarray) -> np.ndarray:
 
             reducer = umap.UMAP(
                 n_components=ARCHETYPE_MAP_N_COMPONENTS,
-                random_state=42,
+                random_state=MODEL_RANDOM_STATE,
             )
             return reducer.fit_transform(embeddings)
         except ImportError:
             pass
-    pca = PCA(n_components=ARCHETYPE_MAP_N_COMPONENTS, random_state=42)
+    pca = PCA(n_components=ARCHETYPE_MAP_N_COMPONENTS, random_state=MODEL_RANDOM_STATE)
     return pca.fit_transform(embeddings)
 
 
