@@ -496,10 +496,18 @@ def main() -> int:
             not rows.empty and "calibrated_fit_percentile" in rows.columns
         )
         if fitted:
+            n_anchor = len(rows)
+            if (
+                cal is not None
+                and cal.is_fitted_
+                and cal._raw_anchor is not None
+                and len(cal._raw_anchor) > 0
+            ):
+                n_anchor = int(len(cal._raw_anchor))
             calibration = {
                 "method": cal.method if cal is not None else "isotonic",
                 "fitted": True,
-                "n_anchor": int(len(cal._raw_anchor or [])) if cal else len(rows),
+                "n_anchor": n_anchor,
                 "outcome_scale": "unit_interval",
             }
         backtest_metrics = {

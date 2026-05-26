@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-26T22:14:30Z",
+  "generated_at_utc": "2026-05-26T22:39:52Z",
   "season": "2024-25",
   "ingest_ok": true,
   "ingest": {
@@ -74,7 +74,7 @@
     "tests/test_ingest_smoke.py",
     "tests/test_config.py"
   ],
-  "pytest_summary": "40 passed, 30 warnings in 127.20s (0:02:07)",
+  "pytest_summary": "40 passed, 30 warnings in 87.28s (0:01:27)",
   "visual_test_figures": [
     "reports\\validation\\option_d\\figures\\13_ensemble_weights.png",
     "reports\\validation\\option_d\\figures\\14_dashboard_data_health.png",
