@@ -1,12 +1,12 @@
 {
-  "generated_at_utc": "2026-05-26T20:57:00Z",
+  "generated_at_utc": "2026-05-26T21:56:08Z",
   "season": "2024-25",
   "ingest_ok": true,
   "train_roles_ok": true,
   "ingest_mvp": {
     "season": "2024-25",
     "tier": "mvp",
-    "elapsed_sec": 0.5,
+    "elapsed_sec": 2.0,
     "player_rows": 569,
     "team_rows": 30,
     "lineup_units_rows": 0,
