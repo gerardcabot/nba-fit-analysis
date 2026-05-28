@@ -1,6 +1,6 @@
 # Option D validation run log
 
-- **Started (UTC):** 2026-05-26T22:34:26Z
+- **Started (UTC):** 2026-05-28T17:12:04Z
 - **Season:** 2024-25
 - **Player / team:** 2544 / 1610612747
 
@@ -53,7 +53,7 @@ tests/test_movement_backtest.py: 3 warnings
     return fit_method(estimator, *args, **kwargs)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-40 passed, 30 warnings in 87.28s (0:01:27)
+40 passed, 30 warnings in 248.51s (0:04:08)
 ```
 - **Exit code:** 0
 
@@ -62,5 +62,6 @@ tests/test_movement_backtest.py: 3 warnings
 - `reports\validation\option_d\figures\13_ensemble_weights.png`
 - `reports\validation\option_d\figures\14_dashboard_data_health.png`
 - `reports\validation\option_d\figures\12_calibration_curve.png`
+- **14_dashboard_data_health:** probe OK=100 EMPTY=6 FAIL=36; essential 42/42 OK
 
-- **Finished (UTC):** 2026-05-26T22:39:52Z
+- **Finished (UTC):** 2026-05-28T17:27:43Z

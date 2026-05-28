@@ -196,13 +196,32 @@ def _uncertainty_summary(backtest_rows: pd.DataFrame) -> dict[str, float | None]
     return out
 
 
-def _run_visual_tests() -> list[str]:
+def _run_visual_tests() -> tuple[list[str], str | None]:
     import visual_tests._constants as vt_constants
+    import visual_tests._plot_utils as plot_utils
+    import visual_tests._validation_artifacts as validation_artifacts
 
     vt_constants.FIGURES_DIR = _FIGURES_OUT
+    plot_utils.FIGURES_DIR = _FIGURES_OUT
     _FIGURES_OUT.mkdir(parents=True, exist_ok=True)
 
+    backtest_csv = _OUT / "backtest_results.csv"
+    fit_card_json = _OUT / f"fit_card_{PLAYER_ID}_{TEAM_ID}.json"
+    if not backtest_csv.is_file():
+        raise FileNotFoundError(
+            f"backtest_results.csv not found at {backtest_csv}; run backtest first"
+        )
+    if not fit_card_json.is_file():
+        raise FileNotFoundError(
+            f"fit card not found at {fit_card_json}; run rank/fit card first"
+        )
+
+    validation_artifacts.backtest_csv = backtest_csv
+    validation_artifacts.fit_card_json = fit_card_json
+    validation_artifacts.last_figure_caption = None
+
     written: list[str] = []
+    data_health_caption: str | None = None
     for mod_name in (
         "visual_tests.12_calibration_curve",
         "visual_tests.13_ensemble_weights",
@@ -212,19 +231,23 @@ def _run_visual_tests() -> list[str]:
         rc = int(mod.main())
         if rc != 0:
             raise RuntimeError(f"{mod_name} exited {rc}")
+        if mod_name.endswith("14_dashboard_data_health"):
+            data_health_caption = validation_artifacts.last_figure_caption
 
     for nested in (_FIGURES_OUT / "option_d", _FIGURES_OUT / "dashboard"):
         if nested.is_dir():
             for png in nested.glob("*.png"):
                 dest = _FIGURES_OUT / png.name
                 shutil.copy2(png, dest)
-                written.append(str(dest.relative_to(_REPO)))
+                rel = str(dest.relative_to(_REPO))
+                if rel not in written:
+                    written.append(rel)
 
     for png in sorted(_FIGURES_OUT.glob("*.png")):
         rel = str(png.relative_to(_REPO))
         if rel not in written:
             written.append(rel)
-    return written
+    return written, data_health_caption
 
 
 def _scoring_player_ids(context: SeasonFitContext, movements: pd.DataFrame) -> list[int]:
@@ -480,10 +503,13 @@ def main() -> int:
     )
 
     figure_paths: list[str] = []
+    data_health_caption: str | None = None
     try:
-        figure_paths = _run_visual_tests()
+        figure_paths, data_health_caption = _run_visual_tests()
         for p in figure_paths:
             log.append(f"- `{p}`")
+        if data_health_caption:
+            log.append(f"- **14_dashboard_data_health:** {data_health_caption}")
     except Exception as exc:  # noqa: BLE001
         log.append(f"- **Status:** fail — {exc}")
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Stacked bar of Option D ensemble component contributions for sample pairs."""
+"""Stacked bar of Option D ensemble contributions from a validation fit card."""
 
 from __future__ import annotations
 
+import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -12,96 +14,89 @@ if str(_ROOT) not in sys.path:
 if str(_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_ROOT / "src"))
 
+import matplotlib.pyplot as plt
 import numpy as np
 
-from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID, SeasonFitContext
 from nba_fit.scoring.constants import ENSEMBLE_COMPONENT_NAMES
-from nba_fit.scoring.ensemble import component_contributions, extract_ensemble_components
-from nba_fit.scoring.fit_index import build_fit_index_table
-from nba_fit.scoring.submetrics import compute_all_submetrics
 from visual_tests._plot_utils import apply_plot_style, save_figure
+from visual_tests._validation_artifacts import resolve_fit_card_json
 
 
-def _sample_pairs(context: SeasonFitContext) -> list[tuple[int, int, str]]:
-    """Demo player vs a few teams plus one extra cross-team pair."""
-    team_ids = list(context.teams.keys())[:4]
-    pairs: list[tuple[int, int, str]] = []
-    for tid in team_ids:
-        label = context.teams[tid].display_name or str(tid)
-        pairs.append((DEMO_PLAYER_ID, tid, label[:12]))
-    if len(team_ids) >= 2:
-        other_pid = next(
-            pid for pid in context.players if pid != DEMO_PLAYER_ID
+def _load_fit_card(path: Path) -> dict:
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Missing fit card at {path}. "
+            "Run scripts/run_option_d_validation.py first."
         )
-        pairs.append(
-            (other_pid, DEMO_TEAM_ID, f"P{other_pid}→LAL"[:12])
-        )
-    return pairs
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
 
 
-def main() -> int:
-    context = SeasonFitContext.from_synthetic("2025-26", n_players=40)
-    table = build_fit_index_table(context)
-    samples = _sample_pairs(context)
+def main(fit_card_path: Path | None = None) -> int:
+    path = fit_card_path or resolve_fit_card_json()
+    card = _load_fit_card(path)
 
-    labels: list[str] = []
-    contrib_matrix: list[list[float]] = []
-
-    for player_id, team_id, label in samples:
-        row = table.pairs.loc[
-            (table.pairs["player_id"] == player_id)
-            & (table.pairs["team_id"] == team_id)
-        ]
-        if row.empty:
-            player = context.players[player_id]
-            team = context.teams[team_id]
-            sub = compute_all_submetrics(player, team)
-            comps = extract_ensemble_components(sub, player=player)
-            contribs = component_contributions(comps)
-        else:
-            contribs = {
-                name: float(row.iloc[0].get(f"contrib_{name}", 0.0))
-                for name in ENSEMBLE_COMPONENT_NAMES
-            }
-        labels.append(label)
-        contrib_matrix.append([contribs[n] for n in ENSEMBLE_COMPONENT_NAMES])
-
-    if not labels:
-        print("No sample pairs to plot", file=sys.stderr)
+    contributions = card.get("ensemble_contributions") or {}
+    missing = [n for n in ENSEMBLE_COMPONENT_NAMES if n not in contributions]
+    if missing:
+        print(f"Fit card missing ensemble_contributions keys: {missing}", file=sys.stderr)
         return 1
 
-    data = np.array(contrib_matrix)
-    apply_plot_style()
-    import matplotlib.pyplot as plt
+    player_id = card.get("player_id", "?")
+    team = card.get("team") or card.get("team_id", "?")
+    season = card.get("season", "unknown")
+    overall = card.get("overall_fit_percentile")
+    overall_txt = f"{overall:.2f}" if overall is not None else "n/a"
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    x = np.arange(len(labels))
-    bottom = np.zeros(len(labels))
+    values = [float(contributions[name]) for name in ENSEMBLE_COMPONENT_NAMES]
+    label = f"{player_id} @ {team}"
+
+    apply_plot_style()
+    fig, ax = plt.subplots(figsize=(9, 6))
+    x = np.array([0.0])
+    bottom = 0.0
     colors = ["#4c72b0", "#55a868", "#c44e52", "#8172b2", "#ccb974"]
     for i, name in enumerate(ENSEMBLE_COMPONENT_NAMES):
+        val = values[i]
         ax.bar(
             x,
-            data[:, i],
+            val,
             bottom=bottom,
             label=name.replace("_", " "),
             color=colors[i % len(colors)],
+            width=0.55,
             edgecolor="black",
             linewidth=0.6,
             alpha=0.92,
         )
-        bottom += data[:, i]
+        bottom += val
 
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=15, ha="right")
+    ax.set_xticklabels([label], rotation=0, ha="center")
     ax.set_ylabel("Weighted contribution to raw ensemble")
-    ax.set_title("Option D ensemble component contributions (sample player–team pairs)")
+    ax.set_title(
+        f"Option D ensemble — {season} interim "
+        f"(overall {overall_txt} pct, {path.name})"
+    )
     ax.legend(loc="upper right", fontsize=9)
     fig.tight_layout()
 
-    path = save_figure(fig, "13_ensemble_weights", subdir="option_d")
-    print(f"Wrote {path}")
+    out_path = save_figure(fig, "13_ensemble_weights")
+    print(f"Wrote {out_path} ({label}, overall={overall_txt})")
     return 0
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fit-card",
+        type=Path,
+        default=None,
+        help="Path to fit_card JSON (default: validation artifact)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    args = _parse_args()
+    raise SystemExit(main(args.fit_card))
