@@ -1,7 +1,8 @@
 # Foundation validation run log
 
-- **Started (UTC):** 2026-05-26T22:16:04Z
+- **Started (UTC):** 2026-05-28T17:09:55Z
 - **Branch:** stage/00-foundation
+- **Figures note:** Figures regenerated: endpoint health chart uses ProbeRegistry OK/EMPTY/FAIL (unique endpoints); PBP chart labels blank actionType as (unknown) and uses probe meta season for the probed game.
 
 ## Commands
 
@@ -71,18 +72,18 @@ Essential registry endpoints:
 - **Rows:** 24
 ```
 Fetching leaguedashplayerstats season=2024-25 (cache=on)...
-  from_cache=True elapsed=0.00s rows=24
+  from_cache=False elapsed=0.92s rows=24
     LeagueDashPlayerStats: 24 rows, 67 cols
-  cache: C:\Users\geric\Desktop\REPOS\propis\nba-fit-analysis\data\raw\nba_api\leaguedashplayerstats\season=2024-25\data_23cacbff7ba1.parquet
+  cache: C:\Users\geric\Desktop\REPOS\propis\nba-fit-option-c-wt\data\raw\nba_api\leaguedashplayerstats\season=2024-25\data_23cacbff7ba1.parquet
 ```
 
 ## Pytest
 
 - **Exit code:** 0
-- **Summary:** 7 passed in 5.16s
+- **Summary:** 7 passed in 4.28s
 ```
 .......                                                                  [100%]
-7 passed in 5.16s
+7 passed in 4.28s
 ```
 
 ## Visual tests
@@ -97,4 +98,4 @@ Fetching leaguedashplayerstats season=2024-25 (cache=on)...
 - Copied `01_endpoint_health.png` -> `figures/01_endpoint_health.png`
 - Copied `02_pbp_action_type_distribution.png` -> `figures/02_pbp_action_type_distribution.png`
 
-- **Finished (UTC):** 2026-05-26T22:16:38Z
+- **Finished (UTC):** 2026-05-28T17:10:46Z

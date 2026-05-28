@@ -14,6 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from visual_tests._constants import (
     DEFAULT_PROBE_GAME_ID,
+    DEFAULT_SEASON,
     NBA_API_PACING_DELAY_SEC,
     NBA_API_REQUEST_TIMEOUT_SEC,
     PBP_ACTION_TYPE_COLUMN,
@@ -25,6 +26,9 @@ from visual_tests._plot_utils import BAR_ALPHA, COLOR_NEUTRAL, new_figure, save_
 
 JSON_KEY_META = "meta"
 JSON_KEY_GAME_ID = "game_id"
+JSON_KEY_SEASON = "season"
+
+UNKNOWN_ACTION_TYPE = "(unknown)"
 
 CHART_TITLE = "PlayByPlayV3 Event Type Distribution"
 X_AXIS_LABEL = "Event count"
@@ -46,12 +50,19 @@ BROWSER_HEADERS = {
 }
 
 
-def _probe_game_id() -> str:
+def _probe_meta() -> dict:
     if PROBE_RESULTS_JSON.is_file():
         with PROBE_RESULTS_JSON.open(encoding="utf-8") as handle:
-            meta = json.load(handle).get(JSON_KEY_META, {})
-        return str(meta.get(JSON_KEY_GAME_ID, DEFAULT_PROBE_GAME_ID))
-    return DEFAULT_PROBE_GAME_ID
+            return json.load(handle).get(JSON_KEY_META, {})
+    return {}
+
+
+def _probe_game_id() -> str:
+    return str(_probe_meta().get(JSON_KEY_GAME_ID, DEFAULT_PROBE_GAME_ID))
+
+
+def _probe_season() -> str:
+    return str(_probe_meta().get(JSON_KEY_SEASON, DEFAULT_SEASON))
 
 
 def _patch_nba_api_headers() -> None:
@@ -72,6 +83,11 @@ def _fetch_playbyplay_v3(game_id: str):
     return endpoint.get_data_frames()[PBP_DATASET_INDEX]
 
 
+def _normalize_action_types(series):
+    as_str = series.fillna("").astype(str).str.strip()
+    return as_str.mask(as_str == "", UNKNOWN_ACTION_TYPE)
+
+
 def main() -> int:
     try:
         import nba_api  # noqa: F401
@@ -80,6 +96,7 @@ def main() -> int:
         return 0
 
     game_id = _probe_game_id()
+    season = _probe_season()
     df = _fetch_playbyplay_v3(game_id)
 
     if PBP_ACTION_TYPE_COLUMN not in df.columns:
@@ -89,7 +106,8 @@ def main() -> int:
         )
         return 1
 
-    counts = df[PBP_ACTION_TYPE_COLUMN].value_counts()
+    action_types = _normalize_action_types(df[PBP_ACTION_TYPE_COLUMN])
+    counts = action_types.value_counts()
     if TOP_ACTION_TYPES_TO_LABEL and len(counts) > TOP_ACTION_TYPES_TO_LABEL:
         counts = counts.head(TOP_ACTION_TYPES_TO_LABEL)
 
@@ -106,7 +124,9 @@ def main() -> int:
     ax.set_yticks(list(y_pos))
     ax.set_yticklabels(counts.index.astype(str))
     ax.invert_yaxis()
-    ax.set_title(f"{CHART_TITLE} (game_id={game_id}, n={len(df)} events)")
+    ax.set_title(
+        f"{CHART_TITLE} ({season}, game_id={game_id}, n={len(df)} events)"
+    )
     ax.set_xlabel(X_AXIS_LABEL)
     ax.set_ylabel(Y_AXIS_LABEL)
 

@@ -1,68 +1,50 @@
 #!/usr/bin/env python3
-"""Visual test: bar chart of nba_api endpoint probe success vs failure."""
+"""Visual test: bar chart of nba_api endpoint probe OK / EMPTY / FAIL counts."""
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+if str(_REPO_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from visual_tests._constants import PROBE_RESULTS_JSON, REPO_ROOT
+from nba_fit.config.settings import get_settings
+from nba_fit.data.registry import ProbeRegistry
 from visual_tests._plot_utils import (
     BAR_ALPHA,
     BAR_EDGE_WIDTH,
+    COLOR_EMPTY,
     COLOR_FAIL,
     COLOR_SUCCESS,
     new_figure,
     save_figure,
 )
 
-JSON_KEY_META = "meta"
-JSON_KEY_RESULTS = "results"
-JSON_KEY_SUCCESS = "success"
-JSON_KEY_SEASON = "season"
-JSON_KEY_TOTAL = "total"
-
-OUTCOME_SUCCESS = "Success"
-OUTCOME_FAILED = "Failed"
+OUTCOME_OK = "OK"
+OUTCOME_EMPTY = "EMPTY"
+OUTCOME_FAIL = "FAIL"
+OUTCOMES = (OUTCOME_OK, OUTCOME_EMPTY, OUTCOME_FAIL)
 
 CHART_TITLE = "nba_api Endpoint Probe Health"
 X_AXIS_LABEL = "Probe outcome"
-Y_AXIS_LABEL = "Number of endpoints"
+Y_AXIS_LABEL = "Number of unique endpoints"
 OUTPUT_STEM = "01_endpoint_health"
 
 
-def _load_probe_payload(path: Path) -> dict:
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"Missing {path.name}. Run: python {REPO_ROOT / 'probe_all_nba_endpoints.py'}"
-        )
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _count_outcomes(results: list[dict]) -> tuple[int, int]:
-    success_count = sum(1 for row in results if row.get(JSON_KEY_SUCCESS))
-    fail_count = len(results) - success_count
-    return success_count, fail_count
-
-
 def main() -> int:
-    payload = _load_probe_payload(PROBE_RESULTS_JSON)
-    meta = payload.get(JSON_KEY_META, {})
-    results = payload.get(JSON_KEY_RESULTS, [])
-    success_count, fail_count = _count_outcomes(results)
-    total_endpoints = meta.get(JSON_KEY_TOTAL, len(results))
-    season = meta.get(JSON_KEY_SEASON, "unknown season")
+    settings = get_settings()
+    registry = ProbeRegistry.load(settings=settings)
+    summary = registry.summary()
+    meta = registry.meta
+    total_endpoints = len(registry.endpoints)
+    season = meta.get("season", "unknown season")
 
     fig, ax = new_figure()
-    categories = [OUTCOME_SUCCESS, OUTCOME_FAILED]
-    counts = [success_count, fail_count]
-    colors = [COLOR_SUCCESS, COLOR_FAIL]
+    categories = list(OUTCOMES)
+    counts = [summary[c] for c in categories]
+    colors = [COLOR_SUCCESS, COLOR_EMPTY, COLOR_FAIL]
 
     bars = ax.bar(
         categories,
@@ -73,7 +55,7 @@ def main() -> int:
         alpha=BAR_ALPHA,
     )
     ax.bar_label(bars, labels=[str(c) for c in counts], padding=4)
-    ax.set_title(f"{CHART_TITLE} ({season}, n={total_endpoints})")
+    ax.set_title(f"{CHART_TITLE} ({season}, n={total_endpoints} unique endpoints)")
     ax.set_xlabel(X_AXIS_LABEL)
     ax.set_ylabel(Y_AXIS_LABEL)
     ax.set_ylim(bottom=0)

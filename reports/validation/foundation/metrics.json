@@ -1,6 +1,7 @@
 {
-  "generated_at_utc": "2026-05-26T22:16:38Z",
+  "generated_at_utc": "2026-05-28T17:10:46Z",
   "branch": "stage/00-foundation",
+  "figures_regeneration_note": "Figures regenerated: endpoint health chart uses ProbeRegistry OK/EMPTY/FAIL (unique endpoints); PBP chart labels blank actionType as (unknown) and uses probe meta season for the probed game.",
   "endpoint_health": {
     "OK": 100,
     "EMPTY": 6,
@@ -16,7 +17,7 @@
   },
   "pytest": {
     "exit_code": 0,
-    "summary_line": "7 passed in 5.16s",
+    "summary_line": "7 passed in 4.28s",
     "passed": 7,
     "failed": 0,
     "skipped": 0

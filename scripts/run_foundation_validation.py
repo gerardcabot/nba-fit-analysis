@@ -20,6 +20,11 @@ _FIGURES_SRC = _REPO / "reports" / "figures"
 FETCH_ENDPOINT = "leaguedashplayerstats"
 FETCH_SEASON = "2024-25"
 VISUAL_STEMS = ("01_endpoint_health", "02_pbp_action_type_distribution")
+FIGURES_REGENERATION_NOTE = (
+    "Figures regenerated: endpoint health chart uses ProbeRegistry OK/EMPTY/FAIL "
+    "(unique endpoints); PBP chart labels blank actionType as (unknown) and uses "
+    "probe meta season for the probed game."
+)
 
 if str(_REPO / "src") not in sys.path:
     sys.path.insert(0, str(_REPO / "src"))
@@ -134,6 +139,7 @@ def main() -> int:
         "",
         f"- **Started (UTC):** {_utc_now()}",
         f"- **Branch:** stage/00-foundation",
+        f"- **Figures note:** {FIGURES_REGENERATION_NOTE}",
         "",
         "## Commands",
         "",
@@ -231,6 +237,7 @@ def main() -> int:
     metrics: dict[str, object] = {
         "generated_at_utc": _utc_now(),
         "branch": "stage/00-foundation",
+        "figures_regeneration_note": FIGURES_REGENERATION_NOTE,
         "endpoint_health": endpoint_counts,
         "health_cli_exit_code": health_rc,
         "fetch_sample": {
