@@ -15,7 +15,7 @@ if str(_ROOT / "src") not in sys.path:
 import matplotlib.pyplot as plt
 import numpy as np
 
-from nba_fit.config.settings import DEFAULT_SEASON
+from visual_tests._constants import VALIDATION_SEASON
 from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.impact_context import ImpactFitContext
 from nba_fit.models.rapm import load_rapm
@@ -24,7 +24,7 @@ from visual_tests._plot_utils import apply_plot_style, save_figure
 
 
 def main() -> int:
-    season = DEFAULT_SEASON
+    season = VALIDATION_SEASON
     source = "trained"
     try:
         rapm = load_rapm(season)

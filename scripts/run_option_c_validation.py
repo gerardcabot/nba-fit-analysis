@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -130,11 +131,17 @@ def _run_pytest(lines: list[str]) -> None:
         raise RuntimeError(f"pytest failed ({proc.returncode})")
 
 
+def _copy_visual_figure(src: Path, dest_name: str) -> Path:
+    dest = FIGURES_DIR / dest_name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if src.resolve() != dest.resolve():
+        shutil.copy2(src, dest)
+    return dest
+
+
 def _run_visual_tests(lines: list[str]) -> list[str]:
     import importlib
-    import shutil
 
-    import nba_fit.config.settings as nba_settings
     import visual_tests._constants as vt_constants
     import visual_tests._plot_utils as plot_utils
 
@@ -142,39 +149,46 @@ def _run_visual_tests(lines: list[str]) -> list[str]:
     vt_constants.FIGURES_DIR = FIGURES_DIR
     plot_utils.FIGURES_DIR = FIGURES_DIR
 
-    prev_season = nba_settings.DEFAULT_SEASON
-    nba_settings.DEFAULT_SEASON = SEASON
+    flat_names = {
+        "09_possession_rate": "09_possession_rate.png",
+        "10_rapm_distribution": "10_rapm_distribution.png",
+        "11_lineup_delta_bar": "11_lineup_delta_bar.png",
+    }
+
+    for mod_name in (
+        "visual_tests.09_possession_rate",
+        "visual_tests.10_rapm_distribution",
+        "visual_tests.11_lineup_delta_bar",
+    ):
+        _log(lines, f"\n$ python {mod_name.replace('.', '/')}.py")
+        if mod_name in sys.modules:
+            mod = importlib.reload(sys.modules[mod_name])
+        else:
+            mod = importlib.import_module(mod_name)
+        rc = int(mod.main())
+        if rc != 0:
+            raise RuntimeError(f"{mod_name} exited {rc}")
 
     figure_paths: list[str] = []
-    try:
-        for mod_name in (
-            "visual_tests.09_possession_rate",
-            "visual_tests.10_rapm_distribution",
-            "visual_tests.11_lineup_delta_bar",
-        ):
-            _log(lines, f"\n$ python {mod_name.replace('.', '/')}.py")
-            if mod_name in sys.modules:
-                mod = importlib.reload(sys.modules[mod_name])
-            else:
-                mod = importlib.import_module(mod_name)
-            if hasattr(mod, "DEFAULT_SEASON"):
-                mod.DEFAULT_SEASON = SEASON
-            rc = int(mod.main())
-            if rc != 0:
-                raise RuntimeError(f"{mod_name} exited {rc}")
-    finally:
-        nba_settings.DEFAULT_SEASON = prev_season
+    for stem, dest_name in flat_names.items():
+        copied = False
+        for candidate in sorted(FIGURES_DIR.rglob(f"{stem}.png")):
+            dest = _copy_visual_figure(candidate, dest_name)
+            figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+            copied = True
+            break
+        if not copied:
+            default_fig = REPO_ROOT / "reports" / "figures"
+            if default_fig.exists():
+                for candidate in sorted(default_fig.rglob(f"{stem}.png")):
+                    dest = _copy_visual_figure(candidate, dest_name)
+                    figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+                    break
 
-    for png in sorted(FIGURES_DIR.rglob("*.png")):
-        figure_paths.append(str(png.relative_to(REPO_ROOT)))
-
-    default_fig = REPO_ROOT / "reports" / "figures"
-    if default_fig.exists():
-        for png in default_fig.rglob("09_possession_rate.png"):
-            dest = FIGURES_DIR / png.name
-            if not dest.exists():
-                shutil.copy2(png, dest)
-                figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+    for png in sorted(FIGURES_DIR.glob("*.png")):
+        rel = str(png.relative_to(REPO_ROOT))
+        if rel not in figure_paths:
+            figure_paths.append(rel)
 
     return sorted(set(figure_paths))
 

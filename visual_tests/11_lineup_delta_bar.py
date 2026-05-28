@@ -12,7 +12,7 @@ if str(_ROOT) not in sys.path:
 if str(_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_ROOT / "src"))
 
-from nba_fit.config.settings import DEFAULT_SEASON
+from visual_tests._constants import VALIDATION_SEASON
 from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID
 from nba_fit.scoring.lineup_sim import run_lineup_sim
 from visual_tests._plot_utils import apply_plot_style, save_figure
@@ -23,7 +23,7 @@ def main() -> int:
         result = run_lineup_sim(
             DEMO_PLAYER_ID,
             DEMO_TEAM_ID,
-            DEFAULT_SEASON,
+            VALIDATION_SEASON,
             top_n=5,
             prefer_interim=True,
             prefer_api=False,

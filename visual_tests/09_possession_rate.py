@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from nba_fit.config.settings import (
-    DEFAULT_SEASON,
     POSSESSIONS_PER_TEAM_PER_GAME_REGULATION,
     get_settings,
 )
+from visual_tests._constants import VALIDATION_SEASON
 from nba_fit.data.pbpstats_adapter import possessions_from_events_and_rotation
 from nba_fit.data.fetchers.pbp import playbyplay_frame
 from nba_fit.data.storage import interim_path
@@ -42,7 +42,7 @@ def _synthetic_possession_counts() -> pd.Series:
 
     settings = get_settings()
     client = NBAClient(settings=settings)
-    season = settings.default_season
+    season = VALIDATION_SEASON
     game_id = DEFAULT_GAME_ID
     try:
         pbp = fetch_playbyplay_game(client, game_id, season=season, use_cache=True)
@@ -71,7 +71,7 @@ def _load_counts(season: str) -> pd.Series:
 
 
 def main() -> int:
-    season = DEFAULT_SEASON
+    season = VALIDATION_SEASON
     counts = _load_counts(season)
     if counts.empty:
         print("No possession counts to plot", file=sys.stderr)
