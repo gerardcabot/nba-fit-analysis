@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-26T20:32:04Z",
+  "generated_at_utc": "2026-05-28T17:11:46Z",
   "season": "2024-25",
   "ingest_ok": true,
   "data_source": "interim",
@@ -11,8 +11,8 @@
     "tier": "mvp",
     "player_rows": 569,
     "team_rows": 30,
-    "players_path": "data/interim/players/season=2024-25/data.parquet",
-    "teams_path": "data/interim/teams/season=2024-25/data.parquet",
+    "players_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-a-wt\\data\\interim\\players\\season=2024-25\\data.parquet",
+    "teams_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-a-wt\\data\\interim\\teams\\season=2024-25\\data.parquet",
     "endpoints": {
       "leaguedashplayerstats": 569,
       "leaguedashteamstats": 30,
@@ -58,7 +58,7 @@
   },
   "pytest_exit_code": 0,
   "pytest_pass_count": 11,
-  "pytest_summary": "11 passed in 8.04s",
+  "pytest_summary": "11 passed in 19.27s",
   "top3_player_destinations": [
     {
       "rank": 1,
@@ -95,5 +95,95 @@
       "player_id": 1629652,
       "overall_fit_percentile": 79.59285295840657
     }
-  ]
+  ],
+  "heatmap_rankings_check": {
+    "ok": true,
+    "top_n": 10,
+    "checks": [
+      {
+        "rank": 1,
+        "team": "Philadelphia 76ers",
+        "percentile": 67.6889,
+        "csv_percentile": 67.6889,
+        "match": true
+      },
+      {
+        "rank": 2,
+        "team": "Dallas Mavericks",
+        "percentile": 58.802,
+        "csv_percentile": 58.802,
+        "match": true
+      },
+      {
+        "rank": 3,
+        "team": "New Orleans Pelicans",
+        "percentile": 57.8588,
+        "csv_percentile": 57.8588,
+        "match": true
+      },
+      {
+        "rank": 4,
+        "team": "Charlotte Hornets",
+        "percentile": 52.9262,
+        "csv_percentile": 52.9262,
+        "match": true
+      },
+      {
+        "rank": 5,
+        "team": "Utah Jazz",
+        "percentile": 51.8834,
+        "csv_percentile": 51.8834,
+        "match": true
+      },
+      {
+        "rank": 6,
+        "team": "San Antonio Spurs",
+        "percentile": 48.7434,
+        "csv_percentile": 48.7434,
+        "match": true
+      },
+      {
+        "rank": 7,
+        "team": "Phoenix Suns",
+        "percentile": 46.2361,
+        "csv_percentile": 46.2361,
+        "match": true
+      },
+      {
+        "rank": 8,
+        "team": "Indiana Pacers",
+        "percentile": 41.9069,
+        "csv_percentile": 41.9069,
+        "match": true
+      },
+      {
+        "rank": 9,
+        "team": "Detroit Pistons",
+        "percentile": 41.696,
+        "csv_percentile": 41.696,
+        "match": true
+      },
+      {
+        "rank": 10,
+        "team": "Brooklyn Nets",
+        "percentile": 38.884,
+        "csv_percentile": 38.884,
+        "match": true
+      }
+    ]
+  },
+  "visual_tests": {
+    "03_player_stat_distributions": {
+      "exit_code": 0,
+      "figures": [
+        "figures\\03_player_stat_distributions.png"
+      ]
+    },
+    "05_fit_score_heatmap": {
+      "exit_code": 0,
+      "figures": [
+        "figures\\05_fit_score_heatmap.png"
+      ]
+    }
+  }
 }

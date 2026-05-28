@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -35,6 +37,121 @@ from nba_fit.scoring.ranker import FitRanker  # noqa: E402
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _log(msg: str, log_lines: list[str]) -> None:
+    log_lines.append(msg)
+    print(msg)
+
+
+def _load_visual_test_module(script_stem: str):
+    """Load visual_tests/NN_name.py (numeric stems are invalid as import names)."""
+    path = _REPO / "visual_tests" / f"{script_stem}.py"
+    spec = importlib.util.spec_from_file_location(f"_vt_{script_stem}", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load visual test module from {path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _copy_visual_figure(src: Path, dest_name: str) -> Path | None:
+    if not src.is_file():
+        return None
+    dest = _FIGURES_OUT / dest_name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(src.read_bytes())
+    return dest
+
+
+def _run_visual_tests(log_lines: list[str]) -> dict[str, object]:
+    """Run visual_tests 03 and 05; save PNGs under validation figures/."""
+    if str(_REPO) not in sys.path:
+        sys.path.insert(0, str(_REPO))
+    import visual_tests._constants as vt_constants  # noqa: WPS433
+    import visual_tests._plot_utils as plot_utils  # noqa: WPS433
+
+    _FIGURES_OUT.mkdir(parents=True, exist_ok=True)
+    vt_constants.FIGURES_DIR = _FIGURES_OUT
+    plot_utils.FIGURES_DIR = _FIGURES_OUT
+
+    os.environ["PRIMARY_SEASON"] = PRIMARY_SEASON
+
+    modules: list[tuple[str, str, list[str]]] = [
+        (
+            "03_player_stat_distributions",
+            "03_player_stat_distributions.png",
+            ["--season", PRIMARY_SEASON],
+        ),
+        (
+            "05_fit_score_heatmap",
+            "05_fit_score_heatmap.png",
+            ["--season", PRIMARY_SEASON, "--player-id", str(PLAYER_ID)],
+        ),
+    ]
+    results: dict[str, object] = {}
+    for script_stem, dest_name, argv in modules:
+        short = script_stem
+        _log(f"Visual test {short}...", log_lines)
+        try:
+            mod = _load_visual_test_module(script_stem)
+            rc = int(mod.main(argv))
+        except Exception as exc:  # noqa: BLE001
+            rc = 1
+            results[short] = {"exit_code": rc, "error": str(exc), "figures": []}
+            _log(f"  {short} failed: {exc}", log_lines)
+            continue
+
+        copied: list[str] = []
+        dest_flat = _FIGURES_OUT / dest_name
+        candidates = sorted(_FIGURES_OUT.rglob(f"{short}*.png"), key=lambda p: p == dest_flat)
+        for candidate in candidates:
+            if candidate.resolve() == dest_flat.resolve():
+                continue
+            rel = _copy_visual_figure(candidate, dest_name)
+            if rel is not None:
+                copied.append(str(rel.relative_to(_OUT)))
+                break
+        if not copied and dest_flat.is_file():
+            copied.append(str(dest_flat.relative_to(_OUT)))
+        if not copied:
+            for candidate in sorted((_REPO / "reports" / "figures").rglob(f"{short}*.png")):
+                rel = _copy_visual_figure(candidate, dest_name)
+                if rel is not None:
+                    copied.append(str(rel.relative_to(_OUT)))
+                    break
+        results[short] = {"exit_code": rc, "figures": copied}
+        _log(f"  {short} exit={rc} figures={len(copied)}", log_lines)
+    return results
+
+
+def _heatmap_matches_rankings(
+    ranker: FitRanker, rankings_csv: Path, *, top_n: int = 10
+) -> dict[str, object]:
+    """Confirm heatmap top teams align with saved player rankings CSV."""
+    dest = ranker.rank_destinations_for_player(PLAYER_ID, top_n=top_n)
+    if not rankings_csv.is_file() or dest.empty:
+        return {"ok": False, "reason": "missing rankings or destinations"}
+    saved = pd.read_csv(rankings_csv).head(top_n)
+    checks: list[dict[str, object]] = []
+    ok = True
+    for i in range(min(len(dest), len(saved))):
+        live = dest.iloc[i]
+        ref = saved.iloc[i]
+        team_match = str(live["team"]) == str(ref["team"])
+        pct_delta = abs(float(live["overall_fit_percentile"]) - float(ref["overall_fit_percentile"]))
+        row_ok = team_match and pct_delta < 1e-6
+        ok = ok and row_ok
+        checks.append(
+            {
+                "rank": int(live["rank"]),
+                "team": str(live["team"]),
+                "percentile": round(float(live["overall_fit_percentile"]), 4),
+                "csv_percentile": round(float(ref["overall_fit_percentile"]), 4),
+                "match": row_ok,
+            }
+        )
+    return {"ok": ok, "top_n": top_n, "checks": checks}
 
 
 def _run_pytest() -> tuple[int, str]:
@@ -220,9 +337,6 @@ def main() -> int:
             else []
         ),
     }
-    (_OUT / "metrics.json").write_text(
-        json.dumps(metrics, indent=2), encoding="utf-8"
-    )
 
     log_lines.extend(
         [
@@ -237,11 +351,36 @@ def main() -> int:
             "",
             "## Visual tests",
             "",
-            "Run separately; PNGs copied to `figures/`.",
-            "",
         ]
     )
 
+    heatmap_check = _heatmap_matches_rankings(
+        ranker, _OUT / "rankings_player_2544.csv", top_n=10
+    )
+    metrics["heatmap_rankings_check"] = heatmap_check
+
+    visual_results = _run_visual_tests(log_lines)
+    metrics["visual_tests"] = visual_results
+    for short, info in visual_results.items():
+        rc = int(info.get("exit_code", 1)) if isinstance(info, dict) else 1
+        status = "pass" if rc == 0 else "fail"
+        figs = info.get("figures", []) if isinstance(info, dict) else []
+        log_lines.append(f"- `{short}` — **{status}** (exit={rc}, figures={figs})")
+    if heatmap_check.get("ok"):
+        top = heatmap_check.get("checks", [])
+        if top:
+            first = top[0]
+            log_lines.append(
+                f"- **Heatmap vs CSV:** pass — #{first['rank']} {first['team']} "
+                f"@ {first['percentile']} percentile"
+            )
+    else:
+        log_lines.append("- **Heatmap vs CSV:** fail — top-10 teams diverge from rankings CSV")
+    log_lines.append("")
+
+    (_OUT / "metrics.json").write_text(
+        json.dumps(metrics, indent=2), encoding="utf-8"
+    )
     (_OUT / "RUN_LOG.md").write_text("\n".join(log_lines), encoding="utf-8")
 
     print(json.dumps(metrics, indent=2))

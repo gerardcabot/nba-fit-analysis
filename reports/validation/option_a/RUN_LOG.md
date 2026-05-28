@@ -1,6 +1,6 @@
 # Option A validation run log
 
-- **Started (UTC):** 2026-05-26T20:31:44Z
+- **Started (UTC):** 2026-05-28T17:10:45Z
 - **Primary season:** 2024-25
 - **Fallback season:** 2025-26
 
@@ -28,23 +28,16 @@
 
 ```
 ...........                                                              [100%]
-11 passed in 8.04s
+11 passed in 19.27s
 ```
 - **Exit code:** 0
 
 ## Visual tests
 
-- `PYTHONPATH=<repo> python visual_tests/03_player_stat_distributions.py` (2024-25 interim via settings patch) — **pass**
-- `PYTHONPATH=<repo> python visual_tests/05_fit_score_heatmap.py` — **pass** (synthetic demo heatmap)
-- Figures saved: `figures/03_player_stat_distributions.png`, `figures/05_fit_score_heatmap.png`
-
-## Pytest (re-run for log)
-
-```
-...........                                                              [100%]
-11 passed in 8.62s
-```
-
-- **Exit code:** 0
-
-- **Finished (UTC):** 2026-05-26T20:33:00Z
+Visual test 03_player_stat_distributions...
+  03_player_stat_distributions exit=0 figures=1
+Visual test 05_fit_score_heatmap...
+  05_fit_score_heatmap exit=0 figures=1
+- `03_player_stat_distributions` — **pass** (exit=0, figures=['figures\\03_player_stat_distributions.png'])
+- `05_fit_score_heatmap` — **pass** (exit=0, figures=['figures\\05_fit_score_heatmap.png'])
+- **Heatmap vs CSV:** pass — #1 Philadelphia 76ers @ 67.6889 percentile
