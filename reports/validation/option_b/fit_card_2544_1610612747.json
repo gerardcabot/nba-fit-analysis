@@ -3,27 +3,8 @@
   "team_id": 1610612747,
   "team": "Los Angeles Lakers",
   "season": "2024-25",
-  "overall_fit_percentile": 75.23432923257177,
-  "raw_fit_score": 0.49933516352583635,
-  "fit_uncertainty": {
-    "low_percentile": 70.04351549169603,
-    "high_percentile": 80.4251429734475
-  },
-  "ensemble": {
-    "profile_fit": 0.4205627532598689,
-    "role_fit": 0.441031985221122,
-    "team_need_fit": 0.5538140189354885,
-    "projected_impact": 0.5,
-    "replacement_upgrade": 0.5960526622983476,
-    "risk_penalty": 0.0032467569969601984
-  },
-  "ensemble_contributions": {
-    "profile_fit": 0.1177575709127633,
-    "role_fit": 0.05292383822653464,
-    "team_need_fit": 0.09968652340838793,
-    "projected_impact": 0.11,
-    "replacement_upgrade": 0.11921053245966953
-  },
+  "overall_fit_percentile": 14.789103690685414,
+  "raw_fit_score": 0.454271481853831,
   "submetrics": {
     "offensive_fit": 0.5026176012988036,
     "defensive_fit": 0.5114632108605759,
@@ -32,8 +13,7 @@
     "shot_profile_fit": 0.5038016650455014,
     "spacing_gravity_fit": 0.5038016650455014,
     "replacement_upgrade": 0.5960526622983476,
-    "team_need_fit": 0.5538140189354885,
-    "lineup_impact_fit": 0.5
+    "team_need_fit": 0.5538140189354885
   },
   "archetype": "high_usage_creator",
   "archetype_id": 4,
@@ -71,24 +51,5 @@
     }
   ],
   "comps_note": "Nearest-neighbor comps in role embedding space (Option B)",
-  "data_source": "interim",
-  "lineup_synergy": {
-    "projected_net_rating_delta": 0.0,
-    "top_lineups": [
-      {
-        "lineup_key": "team_1610612747_swap",
-        "lineup_label": "rotation swap (replaces 1642439)",
-        "player_ids": [
-          2544
-        ],
-        "baseline_net_rating": 0.0,
-        "projected_net_rating_delta": 0.0,
-        "minutes": 1.0,
-        "replaced_player_id": 1642439
-      }
-    ],
-    "data_source": "lineup_units",
-    "note": "Minute-weighted lineup deltas from RAPM swap + optional embedding lineup model (train roles + ingest --tier role for live data)."
-  },
-  "projected_net_rating_delta": 0.0
+  "data_source": "interim"
 }

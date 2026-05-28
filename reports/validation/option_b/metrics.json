@@ -1,18 +1,18 @@
 {
-  "generated_at_utc": "2026-05-26T22:19:47Z",
+  "generated_at_utc": "2026-05-28T17:13:32Z",
   "season": "2024-25",
   "ingest_ok": true,
   "train_roles_ok": true,
   "ingest_mvp": {
     "season": "2024-25",
     "tier": "mvp",
-    "elapsed_sec": 0.6,
+    "elapsed_sec": 1.3,
     "player_rows": 569,
     "team_rows": 30,
     "lineup_units_rows": 0,
     "onoff_rows": 0,
-    "players_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\players\\season=2024-25\\data.parquet",
-    "teams_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\teams\\season=2024-25\\data.parquet",
+    "players_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-b-wt\\data\\interim\\players\\season=2024-25\\data.parquet",
+    "teams_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-b-wt\\data\\interim\\teams\\season=2024-25\\data.parquet",
     "lineup_units_path": null,
     "onoff_path": null,
     "endpoints": {
@@ -29,8 +29,8 @@
     "season": "2024-25",
     "tier": "role",
     "skipped": true,
-    "onoff_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\onoff\\season=2024-25\\data.parquet",
-    "lineup_units_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-analysis\\data\\interim\\lineup_units\\season=2024-25\\data.parquet"
+    "onoff_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-b-wt\\data\\interim\\onoff\\season=2024-25\\data.parquet",
+    "lineup_units_path": "C:\\Users\\geric\\Desktop\\REPOS\\propis\\nba-fit-option-b-wt\\data\\interim\\lineup_units\\season=2024-25\\data.parquet"
   },
   "api_notes": [],
   "n_players_embedded": 569,
@@ -69,19 +69,19 @@
     "06_onoff_minutes": {
       "exit_code": 0,
       "figures": [
-        "figures\\06_onoff_minutes.png"
+        "figures\\ingest\\06_onoff_minutes.png"
       ]
     },
     "07_archetype_map": {
       "exit_code": 0,
       "figures": [
-        "figures\\07_archetype_map.png"
+        "figures\\roles\\07_archetype_map.png"
       ]
     },
     "08_team_need_radar": {
       "exit_code": 0,
       "figures": [
-        "figures\\08_team_need_radar.png"
+        "figures\\option_b\\08_team_need_radar.png"
       ]
     }
   },
