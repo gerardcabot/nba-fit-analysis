@@ -1,5 +1,8 @@
 # Python
 __pycache__/
+*.egg-info/
+.pytest_cache/
+downloaded_files/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -14,7 +17,7 @@ venv/
 data/raw/
 data/interim/
 data/features/
-models/
+/models/
 reports/figures/
 
 # IDE / OS

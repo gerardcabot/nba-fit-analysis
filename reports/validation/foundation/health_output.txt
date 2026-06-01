@@ -1,0 +1,48 @@
+NBA Fit — endpoint health (from probe_all_results.json)
+  Probe timestamp: 2026-05-26 17:44 UTC
+  Season:          2025-26
+  Totals:          OK=100 EMPTY=6 FAIL=36
+
+Essential registry endpoints:
+  commonallplayers                 OK         rows=587
+  commonteamroster                 OK         rows=25
+  commonplayerinfo                 OK         rows=28
+  leaguedashplayerbiostats         OK         rows=20
+  leaguedashplayerstats            OK         rows=20
+  playerestimatedmetrics           OK         rows=582
+  playergamelogs                   OK         rows=66
+  playergamelog                    OK         rows=64
+  leaguedashteamstats              OK         rows=1
+  teamestimatedmetrics             OK         rows=30
+  teamgamelogs                     OK         rows=98
+  teamdashboardbygeneralsplits     OK         rows=20
+  shotchartdetail                  OK         rows=1477
+  leaguedashplayershotlocations    OK         rows=20
+  leaguedashteamshotlocations      OK         rows=1
+  playerdashptshots                OK         rows=27
+  leaguedashplayerptshot           OK         rows=19
+  leaguedashteamptshot             OK         rows=1
+  teamdashptshots                  OK         rows=26
+  playerdashptpass                 OK         rows=34
+  teamdashptpass                   OK         rows=40
+  playerdashptreb                  OK         rows=14
+  teamdashptreb                    OK         rows=14
+  leaguehustlestatsplayer          OK         rows=20
+  leaguehustlestatsteam            OK         rows=1
+  leaguedashptdefend               OK         rows=1
+  leaguedashptteamdefend           OK         rows=1
+  boxscorematchupsv3               OK         rows=207
+  leaguedashlineups                OK         rows=641
+  teamdashlineups                  OK         rows=251
+  teamplayeronoffsummary           OK         rows=41
+  teamplayeronoffdetails           OK         rows=41
+  gamerotation                     OK         rows=52
+  playbyplayv3                     OK         rows=500
+  leaguegamefinder                 OK         rows=66
+  leaguegamelog                    OK         rows=26651
+  scheduleleaguev2                 OK         rows=1440
+  boxscoresummaryv3                OK         rows=25
+  boxscoreadvancedv3               OK         rows=28
+  boxscorefourfactorsv3            OK         rows=28
+  boxscoreusagev3                  OK         rows=28
+  boxscoreplayertrackv3            OK         rows=28

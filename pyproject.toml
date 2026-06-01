@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nba-fit"
+version = "0.1.0"
+description = "NBA player-team fit analysis from public stats data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "NBA Fit Analysis" }]
+dependencies = [
+    "nba_api>=1.11.0",
+    "pandas>=2.0.0",
+    "pyarrow>=14.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "matplotlib>=3.8.0",
+    "pytest>=8.0.0",
+    "seaborn>=0.13.0",
+    "scikit-learn>=1.4.0",
+    # streamlit>=1.32.0  # optional dashboard (Phase 6)
+]
+scraping = [
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "soccerdata>=1.8.0",
+]
+
+[project.scripts]
+nba-fit = "nba_fit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "network: tests that call stats.nba.com",
+]
+
+[tool.setuptools.package-data]
+nba_fit = ["py.typed"]
