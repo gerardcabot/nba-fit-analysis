@@ -62,7 +62,11 @@ class ImpactFitContext:
         persist: bool = False,
     ) -> ImpactFitContext:
         """Train RAPM from possession-native stint matrix; lineup model from lineups."""
-        rapm = fit_rapm_from_possessions(possessions, season=season)
+        rapm = fit_rapm_from_possessions(
+            possessions,
+            season=season,
+            tune_hyperparameters=True,
+        )
         lineup_model = fit_lineup_model(lineups, embeddings, season=season)
         if persist:
             save_rapm(rapm)
@@ -94,7 +98,11 @@ class ImpactFitContext:
         players_raw: pd.DataFrame | None = None,
         persist: bool = False,
     ) -> ImpactFitContext:
-        rapm = fit_rapm_from_lineup_table(lineups, season=season)
+        rapm = fit_rapm_from_lineup_table(
+            lineups,
+            season=season,
+            tune_hyperparameters=True,
+        )
         lineup_model = fit_lineup_model(lineups, embeddings, season=season)
         if persist:
             save_rapm(rapm)
@@ -238,6 +246,13 @@ class ImpactFitContext:
             return cls.from_synthetic(role_context, persist=persist)
 
         try:
+            from nba_fit.models.rapm import rapm_dir
+
+            if not persist and (rapm_dir(season) / "player_rapm.parquet").is_file():
+                lineups = load_lineup_units_table(season)
+                players_raw = load_players_table(season)
+                return cls.load(season, role_context, lineups=lineups, players_raw=players_raw)
+
             lineups = load_lineup_units_table(season)
             players_raw = load_players_table(season)
             if has_possessions_partition(season):

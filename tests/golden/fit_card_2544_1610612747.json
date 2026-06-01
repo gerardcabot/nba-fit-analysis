@@ -1,0 +1,33 @@
+{
+  "player_id": 2544,
+  "team_id": 1610612747,
+  "required_keys": [
+    "player_id",
+    "team_id",
+    "team",
+    "season",
+    "overall_fit_percentile",
+    "raw_fit_score",
+    "fit_uncertainty",
+    "ensemble",
+    "submetrics",
+    "archetype",
+    "industry_role",
+    "soft_role_display",
+    "comps",
+    "data_source"
+  ],
+  "tolerances": {
+    "overall_fit_percentile": 15.0,
+    "raw_fit_score": 0.15,
+    "team_need_fit": 0.2
+  },
+  "reference": {
+    "player_id": 2544,
+    "team_id": 1610612747,
+    "overall_fit_percentile": 41.67,
+    "raw_fit_score": 0.499,
+    "archetype": "high_usage_creator",
+    "industry_role": "Primary Ball Handler"
+  }
+}

@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import argparse
 
-from nba_fit.config.settings import DEFAULT_SEASON
 from nba_fit.features.season_context import DEMO_TEAM_ID
+
+from visual_tests._season_resolve import resolve_sota_season
 
 
 def add_season_team_args(parser: argparse.ArgumentParser) -> None:
+    default_season = resolve_sota_season()
     parser.add_argument(
         "--season",
-        default=DEFAULT_SEASON,
-        help=f"NBA season label (default: {DEFAULT_SEASON})",
+        default=default_season,
+        help=(
+            "NBA season label "
+            f"(default: {default_season} when SOTA interim exists, else project default)"
+        ),
     )
     parser.add_argument(
         "--team-id",
@@ -37,4 +42,5 @@ def resolve_season_team(
     if season is not None and team_id is not None:
         return season, team_id
     args = parse_season_team(argv)
-    return season or args.season, team_id if team_id is not None else args.team_id
+    resolved_season = season or args.season or resolve_sota_season()
+    return resolved_season, team_id if team_id is not None else args.team_id

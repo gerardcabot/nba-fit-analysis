@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
+
+# External data root (optional). When set, raw/interim/features/models live here;
+# reports and repo root stay in the checkout. See docs/STORAGE.md.
+ENV_NBA_FIT_DATA_ROOT: str = "NBA_FIT_DATA_ROOT"
+
+# Subdirectories under NBA_FIT_DATA_ROOT (not under repo data/)
+DATA_ROOT_SUBDIRS: tuple[str, ...] = ("raw", "interim", "features", "models")
 
 # ---------------------------------------------------------------------------
 # Basketball / analytics domain constants (no magic numbers without rationale)
@@ -286,11 +294,34 @@ def _project_root() -> Path:
     return here.parents[3]
 
 
+def _external_data_root_from_env() -> Path | None:
+    raw = os.environ.get(ENV_NBA_FIT_DATA_ROOT)
+    if not raw or not str(raw).strip():
+        return None
+    return Path(raw).expanduser().resolve()
+
+
+def ensure_data_root_layout(data_root: Path | None = None) -> Path:
+    """Create raw/, interim/, features/, models/ under the external data root.
+
+    Returns the resolved data root. Uses ``NBA_FIT_DATA_ROOT`` when *data_root* is omitted.
+    """
+    root = (data_root or _external_data_root_from_env())
+    if root is None:
+        msg = f"{ENV_NBA_FIT_DATA_ROOT} is not set"
+        raise ValueError(msg)
+    resolved = Path(root).expanduser().resolve()
+    for name in DATA_ROOT_SUBDIRS:
+        (resolved / name).mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
 @dataclass(frozen=True)
 class Settings:
     """Resolved paths and runtime options."""
 
     root: Path
+    data_root: Path | None
     data_raw: Path
     data_interim: Path
     data_features: Path
@@ -314,12 +345,24 @@ class Settings:
 
 def get_settings() -> Settings:
     root = _project_root()
+    data_root = _external_data_root_from_env()
+    if data_root is not None:
+        data_raw = data_root / "raw"
+        data_interim = data_root / "interim"
+        data_features = data_root / "features"
+        models_dir = data_root / "models"
+    else:
+        data_raw = root / "data" / "raw"
+        data_interim = root / "data" / "interim"
+        data_features = root / "data" / "features"
+        models_dir = root / "models"
     return Settings(
         root=root,
-        data_raw=root / "data" / "raw",
-        data_interim=root / "data" / "interim",
-        data_features=root / "data" / "features",
-        models_dir=root / "models",
+        data_root=data_root,
+        data_raw=data_raw,
+        data_interim=data_interim,
+        data_features=data_features,
+        models_dir=models_dir,
         reports_dir=root / "reports",
         probe_results_path=root / "probe_all_results.json",
         seasons=DEFAULT_SEASONS,

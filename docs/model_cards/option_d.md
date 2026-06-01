@@ -45,15 +45,37 @@ Weights are **analyst priors** in `scoring/constants.py` — not yet learned fro
 
 ---
 
+## Validation structure
+
+SOTA closure uses a dedicated bundle under `reports/validation/sota/` (see [SOTA_FINAL_EXECUTION.md](../plans/SOTA_FINAL_EXECUTION.md)).
+
+| Artifact | Field / content |
+|----------|-----------------|
+| `metrics.json` | `p0_gates_passed`, `p0_gate_failures`, `partitions`, `backtest`, `ablation` |
+| `metrics.json` → `learned_ensemble_weights` | **Placeholder** — populated when `fit-weights` runs on real movement rows; prior remains `ensemble_component_weights_prior` |
+| `metrics.json` → `rapm_benchmark_correlation` | **Placeholder** — vs RAPTOR or LEBRON on ≥100 overlapping players (not yet computed) |
+| `metrics.json` → `backtest.n_movements` | **Placeholder** — target ≥50 real moves; P0 gate fails below threshold |
+| `RUN_LOG.md` | Human-readable pipeline trace |
+| `figures/` | `12_calibration_curve`, `13_ensemble_weights`, `14_dashboard_data_health` |
+| `ablation_summary.csv` | Variants A, AB, ABC, D |
+
+**Entrypoint:** `python scripts/run_sota_validation.py` (exits 1 on P0 gate failure).
+
+Layer-specific reports remain under `reports/validation/option_{a,b,c,d}/`.
+
+---
+
 ## Metrics (validation evidence)
 
-From `reports/validation/option_d/metrics.json`:
+From `reports/validation/option_d/metrics.json` (smoke, 2024-25):
 
 - **overall_fit_percentile** (demo: player 2544 → LAL): 41.7
 - **Backtest:** mean calibrated fit 0.43; pre-move fit 81.8 (synthetic moves)
 - **Uncertainty:** mean CI [0.46, 0.58], disagreement 0.09
 - **Pytest:** 40 passed (Option D subset)
 - **Figures:** calibration curve, ensemble weights, dashboard data health
+
+Re-run `scripts/run_sota_validation.py` after real movement labels and full-season impact ingest for authoritative SOTA metrics in `reports/validation/sota/metrics.json`.
 
 ---
 
@@ -91,6 +113,7 @@ Example (Option B validation): LeBron fit card archetype `high_usage_creator` �
 | Re-train roles | `python -m nba_fit train-roles --season 2024-25` |
 | Re-train impact | `python -m nba_fit train-impact --season 2024-25` |
 | Full Option D validation | `python scripts/run_option_d_validation.py` |
+| SOTA validation bundle | `python scripts/run_sota_validation.py` |
 | CI unit tests | `pytest -m "not network"` |
 
 ---
@@ -105,5 +128,6 @@ See [BIBLIOGRAPHY.md](../BIBLIOGRAPHY.md). Primary external benchmarks: RAPTOR, 
 
 | Date | Change |
 |------|--------|
+| 2026-06 | SOTA validation bundle structure; `reports/validation/sota/` placeholders |
 | 2026-06 | Added `industry_role` on fit cards; model card template created |
 | 2026-05 | Option D MVP validation on 2024-25 |

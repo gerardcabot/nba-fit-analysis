@@ -35,6 +35,7 @@ from nba_fit.normalize.possessions import interim_possessions_game_path, load_po
 def _fake_settings(tmp_path: Path) -> Settings:
     return Settings(
         root=tmp_path,
+        data_root=None,
         data_raw=tmp_path / "data" / "raw",
         data_interim=tmp_path / "data" / "interim",
         data_features=tmp_path / "data" / "features",

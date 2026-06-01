@@ -143,6 +143,16 @@ LINEUP_REPLACEMENT_BLEND: float = 0.40
 LINEUP_SYNTHETIC_UNITS_PER_TEAM: int = 8
 
 # ---------------------------------------------------------------------------
+# Movement backtest — real labels & SOTA validation gates
+# ---------------------------------------------------------------------------
+
+# Minimum inferred/curated movements before SOTA validation (no synthetic fallback).
+MIN_REAL_MOVEMENTS: int = 50
+
+# Seasons required for movement-cache warm-up in SOTA closure.
+SOTA_MOVEMENT_SEASONS: tuple[str, ...] = ("2023-24", "2024-25")
+
+# ---------------------------------------------------------------------------
 # Movement backtest — post-move outcome labeling (Option D validation)
 # ---------------------------------------------------------------------------
 

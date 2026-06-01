@@ -19,6 +19,7 @@ class FitRanker:
 
     context: SeasonFitContext
     table: FitIndexTable = field(default_factory=FitIndexTable)
+    impact_context: ImpactFitContext | None = None
 
     @classmethod
     def from_season(
@@ -62,7 +63,7 @@ class FitRanker:
             impact_context=impact_context,
             synthetic=synthetic,
         )
-        return cls(context=context, table=table)
+        return cls(context=context, table=table, impact_context=impact_context)
 
     def rank_destinations_for_player(
         self,
@@ -123,6 +124,7 @@ class FitRanker:
             self.table,
             self.context,
             role_context=role_context,
+            impact_context=self.impact_context,
         )
 
 

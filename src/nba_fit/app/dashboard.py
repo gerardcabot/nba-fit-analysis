@@ -17,6 +17,15 @@ from nba_fit.app.data_health import (
     essential_health_table,
     probe_summary,
 )
+from nba_fit.app.sota_validation import (
+    calibration_summary,
+    figure_path,
+    learned_weights_frame,
+    load_degradation_warnings,
+    load_metrics,
+    movement_source_label,
+    sota_dir,
+)
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY
 from nba_fit.config.settings import get_settings
 from nba_fit.data.registry import ProbeRegistry
@@ -198,6 +207,8 @@ def _view_fit_card(season: str, synthetic: bool) -> None:
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Archetype", card.get("archetype") or "—")
+    if card.get("soft_role_display"):
+        st.caption(f"Soft roles: {card['soft_role_display']}")
     team_need = card.get("team_need_fit")
     if team_need is None:
         team_need = card.get("role_fit")
@@ -339,17 +350,61 @@ def _view_archetype_map(season: str, synthetic: bool) -> None:
 
 def _view_backtest(season: str, synthetic: bool) -> None:
     st.header("Backtest Report")
-    st.info(
-        "Movement backtests and post-trade calibration (Phase 5) are not wired yet. "
-        "Below: current-season fit index calibration and submetric weight reference."
-    )
+    metrics = load_metrics()
+    sota_path = sota_dir()
+
+    if metrics is None:
+        st.warning(
+            f"No SOTA validation bundle at `{sota_path}`. "
+            "Run the SOTA validation script or copy Option D artifacts into "
+            "`reports/validation/sota/`."
+        )
+    else:
+        st.caption(f"SOTA validation: `{sota_path}` · season **{metrics.get('season', season)}**")
+
+        warnings = load_degradation_warnings()
+        if warnings:
+            for msg in warnings:
+                st.warning(str(msg))
+
+        cal = calibration_summary(metrics)
+        backtest = metrics.get("backtest") or {}
+        st.subheader("Movement backtest")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Movements", backtest.get("n_movements", "—"))
+        m2.metric("Source", movement_source_label(metrics))
+        m3.metric(
+            "Calibrated",
+            "Yes" if cal.get("fitted") else "No",
+        )
+        if cal.get("method"):
+            st.caption(
+                f"Calibration: {cal.get('method')} "
+                f"(n_anchor={cal.get('n_anchor', '—')})"
+            )
+
+        cal_fig = figure_path("12_calibration_curve")
+        if cal_fig is not None:
+            st.subheader("Calibration curve")
+            st.image(str(cal_fig), use_container_width=True)
+        else:
+            st.info("Calibration curve figure not found in SOTA bundle.")
+
+        weights_df = learned_weights_frame(metrics)
+        if weights_df is not None:
+            st.subheader("Ensemble weights")
+            st.dataframe(weights_df, use_container_width=True, hide_index=True)
+            move_fig = figure_path("13_ensemble_weights")
+            if move_fig is not None:
+                st.image(str(move_fig), use_container_width=True)
+
+    st.subheader("Live fit index (current season)")
     ranker = _load_ranker(season, synthetic)
     pairs = ranker.table.pairs
     if pairs.empty:
         st.warning("No fit index pairs to summarize.")
         return
 
-    st.subheader("Calibration snapshot")
     c1, c2, c3 = st.columns(3)
     c1.metric("Player×team pairs", f"{len(pairs):,}")
     c2.metric(
@@ -361,7 +416,6 @@ def _view_backtest(season: str, synthetic: bool) -> None:
         f"{pairs['overall_fit_percentile'].median():.1f}",
     )
 
-    st.subheader("Percentile distribution")
     hist_df = pairs[["overall_fit_percentile"]].rename(
         columns={"overall_fit_percentile": "percentile"}
     )
@@ -375,9 +429,7 @@ def _view_backtest(season: str, synthetic: bool) -> None:
         }
     )
     st.dataframe(weights_df, use_container_width=True, hide_index=True)
-    st.caption(
-        f"Active submetrics in index: {', '.join(SUBMETRIC_NAMES)}"
-    )
+    st.caption(f"Active submetrics in index: {', '.join(SUBMETRIC_NAMES)}")
 
 
 def _view_data_health() -> None:

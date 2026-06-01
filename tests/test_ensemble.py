@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from nba_fit.evaluation.holdout_season import next_season, run_holdout_season_smoke
+from nba_fit.scoring.ensemble import clear_ensemble_weights_cache
 from nba_fit.data.fetchers.transactions import synthetic_movements
 from nba_fit.evaluation.movement_backtest import run_movement_backtest
 from nba_fit.features.season_context import DEMO_PLAYER_ID, DEMO_TEAM_ID, SeasonFitContext
@@ -84,10 +85,12 @@ def test_uncertainty_band_clamps() -> None:
 
 
 def test_holdout_season_smoke() -> None:
+    clear_ensemble_weights_cache()
     result = run_holdout_season_smoke("2024-25", synthetic=True)
     assert result.predict_season == next_season("2024-25")
     assert result.train_pairs > 0
     assert result.predict_pairs > 0
+    assert result.data_source == "synthetic"
 
 
 def test_movement_backtest_smoke(context: SeasonFitContext) -> None:

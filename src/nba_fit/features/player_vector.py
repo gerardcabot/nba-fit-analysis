@@ -53,6 +53,8 @@ FEATURE_GROUP_DEFENSE: str = "defense"
 FEATURE_GROUP_REBOUNDING: str = "rebounding"
 FEATURE_GROUP_AVAILABILITY: str = "availability"
 FEATURE_GROUP_PHYSICAL: str = "physical"
+FEATURE_GROUP_TACTICAL: str = "tactical"
+FEATURE_GROUP_ONOFF: str = "onoff"
 
 PLAYER_FEATURE_GROUPS: tuple[str, ...] = (
     FEATURE_GROUP_ROLE_VOLUME,
@@ -63,6 +65,8 @@ PLAYER_FEATURE_GROUPS: tuple[str, ...] = (
     FEATURE_GROUP_REBOUNDING,
     FEATURE_GROUP_AVAILABILITY,
     FEATURE_GROUP_PHYSICAL,
+    FEATURE_GROUP_TACTICAL,
+    FEATURE_GROUP_ONOFF,
 )
 
 
@@ -237,6 +241,28 @@ def build_player_features(df: pd.DataFrame) -> pd.DataFrame:
         "draft_year": series_or_nan(work, "DRAFT_YEAR"),
     }
 
+    # --- tactical (hustle / defend / gravity joins when ingested) ---
+    tactical = {
+        "deflections_pg": series_or_nan(work, "DEFLECTIONS"),
+        "charges_drawn_pg": series_or_nan(work, "CHARGES_DRAWN"),
+        "loose_balls_pg": series_or_nan(work, "LOOSE_BALLS_RECOVERED"),
+        "screen_assists_pg": series_or_nan(work, "SCREEN_ASSISTS"),
+        "contested_shots_pg": series_or_nan(work, "CONTESTED_SHOTS"),
+        "gravity_score": series_or_nan(work, "GRAVITYSCORE"),
+        "avg_gravity_score": series_or_nan(work, "AVGGRAVITYSCORE"),
+        "defend_freq_tactical": series_or_nan(work, "DEFEND_FREQ"),
+        "defend_fg_pct_tactical": series_or_nan(work, "DEFEND_D_FG_PCT"),
+        "defend_plusminus_tactical": series_or_nan(work, "DEFEND_PCT_PLUSMINUS"),
+    }
+
+    # --- on/off lineup impact (role-tier interim) ---
+    onoff = {
+        "net_rating_on": series_or_nan(work, "ONOFF_NET_RATING_ON"),
+        "net_rating_off": series_or_nan(work, "ONOFF_NET_RATING_OFF"),
+        "net_delta": series_or_nan(work, "ONOFF_NET_DELTA"),
+        "on_minutes": series_or_nan(work, "ONOFF_ON_MINUTES"),
+    }
+
     groups: dict[str, dict[str, pd.Series]] = {
         FEATURE_GROUP_ROLE_VOLUME: role_volume,
         FEATURE_GROUP_SCORING_STYLE: scoring_style,
@@ -246,6 +272,8 @@ def build_player_features(df: pd.DataFrame) -> pd.DataFrame:
         FEATURE_GROUP_REBOUNDING: rebounding,
         FEATURE_GROUP_AVAILABILITY: availability,
         FEATURE_GROUP_PHYSICAL: physical,
+        FEATURE_GROUP_TACTICAL: tactical,
+        FEATURE_GROUP_ONOFF: onoff,
     }
 
     for group, feats in groups.items():

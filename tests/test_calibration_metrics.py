@@ -53,3 +53,33 @@ def test_calibration_report_bins() -> None:
     report = calibration_report(y, p, n_bins=2)
     assert len(report) == 2
     assert report["count"].sum() == 4
+
+
+def test_isotonic_train_eval_split() -> None:
+    from nba_fit.evaluation.calibration_metrics import (
+        evaluate_holdout_calibration,
+        fit_isotonic_on_train_rows,
+        split_movements_by_season,
+    )
+    import pandas as pd
+
+    movements = pd.DataFrame(
+        {
+            "season": ["2023-24", "2023-24", "2024-25", "2024-25"],
+            "raw_fit_score": [0.2, 0.8, 0.3, 0.7],
+            "post_move_outcome": [20.0, 80.0, 25.0, 75.0],
+        }
+    )
+    train, eval_df = split_movements_by_season(movements, eval_season="2024-25")
+    assert len(train) == 2
+    assert len(eval_df) == 2
+    calibrator = fit_isotonic_on_train_rows(train)
+    result = evaluate_holdout_calibration(
+        calibrator,
+        eval_df,
+        train_seasons=("2023-24",),
+        eval_season="2024-25",
+        n_train=len(train),
+    )
+    assert result.n_eval == 2
+    assert result.brier is not None

@@ -31,7 +31,9 @@ External systems and metrics used to judge NBA Fit Analysis quality. See [BIBLIO
 |-----------|--------|---------------------------|
 | **Movement backtest calibration** | Mean calibrated fit ≈ post-move outcome | Option D: mean 0.43 vs pre-move 81.8 — **15 synthetic moves** ([metrics.json](../reports/validation/option_d/metrics.json)) |
 | **Holdout season** | Stable rank ordering on new season | Synthetic smoke only ([option_d metrics](../reports/validation/option_d/metrics.json)) |
-| **Lineup delta** | Non-zero projected NR delta on real units | Option C: delta 0.0 on 30-game sample ([metrics.json](../reports/validation/option_c/metrics.json)) |
+| **Lineup delta** | Non-zero projected NR delta on real units | Option C: non-zero on 30-game sample when RAPM spread > 0 ([metrics.json](../reports/validation/option_c/metrics.json)) |
+| **RAPM vs E_NET_RATING** | Spearman ≥ 0.25 on ≥100 players (directional sanity) | `benchmark_rapm_vs_estimated_net()` in `evaluation/rapm_benchmark.py`; recorded in [sota/option_c_metrics.json](../reports/validation/sota/option_c_metrics.json) |
+| **Non-degenerate RAPM** | `net_rapm` std > 0 | `assert_non_degenerate_rapm()` in `evaluation/sota_validation.py`; fails SOTA validation if flat |
 | **Role embedding variance** | Explained variance > 80% | Option B: **84.0% cumulative** on 12 components ([option_b metrics](../reports/validation/option_b/metrics.json)) |
 | **Unit tests** | CI green, no network | 40 passed Option D subset; full suite via `pytest -m "not network"` |
 

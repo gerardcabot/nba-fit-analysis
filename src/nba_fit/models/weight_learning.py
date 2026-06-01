@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
+from nba_fit.config.settings import get_settings
 from nba_fit.models.constants import WEIGHT_LEARNING_DEFAULT_L2
 from nba_fit.scoring.constants import ENSEMBLE_COMPONENT_NAMES, ENSEMBLE_COMPONENT_WEIGHTS
 
@@ -89,3 +92,48 @@ def learn_ensemble_weights(
         train_mse=mse,
         n_samples=int(len(y_arr)),
     )
+
+
+def ensemble_weights_path(season: str, *, root: Path | None = None) -> Path:
+    """Path to ``ensemble_weights_{season}.json`` under ``models/ensemble_weights/``."""
+    settings = get_settings()
+    base = root or settings.models_dir
+    return base / "ensemble_weights" / f"season={season}" / f"ensemble_weights_{season}.json"
+
+
+def save_ensemble_weights(
+    result: WeightLearningResult,
+    season: str,
+    *,
+    path: Path | None = None,
+) -> Path:
+    """Persist learned weights and training diagnostics as JSON."""
+    out = path or ensemble_weights_path(season)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "season": season,
+        "weights": result.weights,
+        "prior_weights": result.prior_weights,
+        "l2": result.l2,
+        "train_mse": result.train_mse,
+        "n_samples": result.n_samples,
+        "component_names": list(ENSEMBLE_COMPONENT_NAMES),
+    }
+    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return out
+
+
+def load_ensemble_weights(
+    season: str,
+    *,
+    root: Path | None = None,
+) -> dict[str, float] | None:
+    """Load learned weights for *season*; return ``None`` when artifact is absent."""
+    path = ensemble_weights_path(season, root=root)
+    if not path.is_file():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    weights = payload.get("weights")
+    if not isinstance(weights, dict):
+        return None
+    return {str(k): float(v) for k, v in weights.items()}

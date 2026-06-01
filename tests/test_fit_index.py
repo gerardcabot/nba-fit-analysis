@@ -77,6 +77,8 @@ def test_fit_card_structure(context: SeasonFitContext) -> None:
     assert card["team_id"] == DEMO_TEAM_ID
     assert "comps" in card
     assert "archetype" in card
+    assert "soft_role_display" in card
+    assert "industry_role" in card
     assert "lineup_synergy" in card
     assert "projected_net_rating_delta" in card
     assert "team_need_fit" in card

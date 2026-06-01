@@ -93,14 +93,16 @@ ENDPOINT_REGISTRY: dict[str, EndpointSpec] = {
         "player_baseline",
         "essential",
         "Game-level player logs for availability and trends.",
-        season_type_all_star="Regular Season",
+        season_type_nullable="Regular Season",
+        per_mode_simple_nullable="Totals",
     ),
     "playergamelog": _spec(
         "playergamelog",
         "player_baseline",
         "essential",
         "Single-player game log.",
-        season_type_all_star="Regular Season",
+        season_type_nullable="Regular Season",
+        per_mode_simple_nullable="Totals",
     ),
     "playerprofilev2": _spec(
         "playerprofilev2",

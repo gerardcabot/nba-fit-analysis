@@ -46,7 +46,11 @@ from nba_fit.models.constants import (
     MODEL_RANDOM_STATE,
 )
 from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts, role_embedding_dir
-from nba_fit.models.role_taxonomy import industry_roles_for_labels, map_heuristic_to_industry
+from nba_fit.models.role_taxonomy import (
+    industry_roles_for_labels,
+    map_heuristic_to_industry,
+    soft_role_display,
+)
 
 # Heuristic archetype vocabulary (basketball-facing labels for cluster centroids).
 ARCHETYPE_LABEL_VOCAB: tuple[str, ...] = (
@@ -65,6 +69,18 @@ ARCHETYPE_LABEL_VOCAB: tuple[str, ...] = (
 )
 
 
+def _aggregate_gmm_industry_probs(
+    proba_row: np.ndarray,
+    component_labels: list[str],
+) -> dict[str, float]:
+    """Map GMM component posteriors to industry-role probability mass."""
+    out: dict[str, float] = {}
+    for weight, label in zip(proba_row, component_labels, strict=False):
+        industry = map_heuristic_to_industry(str(label))
+        out[industry] = out.get(industry, 0.0) + float(weight)
+    return out
+
+
 @dataclass
 class ArchetypeArtifacts:
     """Cluster assignments and human-readable labels for one season."""
@@ -78,6 +94,7 @@ class ArchetypeArtifacts:
     industry_roles: np.ndarray
     centroids: np.ndarray
     clusterer: GaussianMixture | HDBSCAN
+    industry_role_probs: dict[int, dict[str, float]] | None = None
 
     def label_for(self, player_id: int) -> str | None:
         hits = np.where(self.player_ids == player_id)[0]
@@ -96,6 +113,21 @@ class ArchetypeArtifacts:
         if len(hits) == 0:
             return None
         return int(self.cluster_ids[int(hits[0])])
+
+    def industry_probs_for(self, player_id: int) -> dict[str, float]:
+        """Soft industry-role probabilities (GMM posteriors when available)."""
+        if self.industry_role_probs is not None:
+            probs = self.industry_role_probs.get(int(player_id))
+            if probs is not None:
+                return dict(probs)
+        label = self.industry_role_for(player_id)
+        if label is None:
+            return {}
+        return {label: 1.0}
+
+    def soft_role_display_for(self, player_id: int, *, top_n: int = 3) -> str:
+        """Formatted top-k industry roles for fit cards."""
+        return soft_role_display(self.industry_probs_for(player_id), top_n=top_n)
 
 
 def _feature_centroids(
@@ -200,6 +232,16 @@ def fit_archetypes(
     archetype_labels = np.array([id_to_label[int(c)] for c in cluster_ids], dtype=object)
     industry_roles = np.array(industry_roles_for_labels(archetype_labels.tolist()), dtype=object)
 
+    industry_role_probs: dict[int, dict[str, float]] | None = None
+    if isinstance(model, GaussianMixture) and hasattr(model, "predict_proba"):
+        component_labels = [id_to_label.get(i, ARCHETYPE_NOISE_LABEL) for i in range(n_fit)]
+        proba = model.predict_proba(matrix)
+        industry_role_probs = {}
+        for idx, pid in enumerate(player_ids):
+            industry_role_probs[int(pid)] = _aggregate_gmm_industry_probs(
+                proba[idx], component_labels
+            )
+
     return ArchetypeArtifacts(
         season=embeddings.season,
         clusterer_name=clusterer_name,
@@ -210,6 +252,7 @@ def fit_archetypes(
         industry_roles=industry_roles,
         centroids=centroid_matrix,
         clusterer=model,
+        industry_role_probs=industry_role_probs,
     )
 
 
@@ -220,14 +263,20 @@ def archetype_dir(season: str, *, root: Path | None = None) -> Path:
 def save_archetypes(artifacts: ArchetypeArtifacts, path: Path | None = None) -> Path:
     out_dir = path or archetype_dir(artifacts.season)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(
+    table = pd.DataFrame(
         {
             COL_PLAYER_ID: artifacts.player_ids,
             "cluster_id": artifacts.cluster_ids,
             "archetype_label": artifacts.archetype_labels,
             "industry_role": artifacts.industry_roles,
         }
-    ).to_parquet(out_dir / "player_archetypes.parquet", index=False)
+    )
+    if artifacts.industry_role_probs:
+        table["industry_role_probs_json"] = [
+            json.dumps(artifacts.industry_role_probs.get(int(pid), {}))
+            for pid in artifacts.player_ids
+        ]
+    table.to_parquet(out_dir / "player_archetypes.parquet", index=False)
     np.save(out_dir / "centroids.npy", artifacts.centroids)
     joblib.dump(artifacts.clusterer, out_dir / "clusterer.joblib")
     meta = {
@@ -253,6 +302,12 @@ def load_archetypes(season: str, *, root: Path | None = None) -> ArchetypeArtifa
             [map_heuristic_to_industry(str(l)) for l in table["archetype_label"].to_numpy(dtype=object)],
             dtype=object,
         )
+    industry_role_probs: dict[int, dict[str, float]] | None = None
+    if "industry_role_probs_json" in table.columns:
+        industry_role_probs = {
+            int(row[COL_PLAYER_ID]): json.loads(row["industry_role_probs_json"] or "{}")
+            for _, row in table.iterrows()
+        }
     return ArchetypeArtifacts(
         season=meta["season"],
         clusterer_name=meta["clusterer_name"],
@@ -263,6 +318,7 @@ def load_archetypes(season: str, *, root: Path | None = None) -> ArchetypeArtifa
         industry_roles=industry_roles,
         centroids=centroids,
         clusterer=clusterer,
+        industry_role_probs=industry_role_probs,
     )
 
 

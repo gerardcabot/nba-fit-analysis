@@ -334,6 +334,15 @@ def main() -> int:
 
     metrics["possessions"] = _possession_metrics(SEASON)
     metrics["rapm"] = _rapm_summary(SEASON)
+
+    from nba_fit.evaluation.rapm_benchmark import benchmark_rapm_vs_estimated_net
+    from nba_fit.evaluation.sota_validation import assert_non_degenerate_rapm
+    from nba_fit.models.rapm import load_rapm
+
+    rapm = load_rapm(SEASON)
+    assert_non_degenerate_rapm(rapm)
+    metrics["benchmark"] = benchmark_rapm_vs_estimated_net(SEASON, rapm=rapm).to_dict()
+    metrics["sota_gates"] = {"non_degenerate_rapm": True}
     metrics["lineup_sim"] = {
         "projected_net_rating_delta": sim.projected_net_rating_delta,
         "data_source": sim.data_source,

@@ -118,6 +118,12 @@ def _resolve_kwargs(endpoint_name: str, cls: type, season: str, extra: dict[str,
     merged = {**registry_defaults, **extra}
     kwargs: dict[str, Any] = {"timeout": REQUEST_TIMEOUT_SEC, **merged}
     sig = inspect.signature(cls.__init__)
+    allowed = {
+        p
+        for p in sig.parameters
+        if p not in ("self", "proxy", "headers", "get_request")
+    }
+    kwargs = {k: v for k, v in kwargs.items() if k in allowed or k == "timeout"}
     for param_name, param in sig.parameters.items():
         if param_name in ("self", "proxy", "headers", "get_request"):
             continue

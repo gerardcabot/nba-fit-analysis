@@ -11,8 +11,9 @@ FIGURES_DIR = REPO_ROOT / "reports" / "figures"
 
 # Probe context (see probe_all_nba_endpoints.py and probe_all_results.json meta)
 DEFAULT_SEASON = "2025-26"
-# Option C validation bundle (scripts/run_option_c_validation.py)
+# Option C / SOTA validation bundle when interim tables exist
 VALIDATION_SEASON = "2024-25"
+SOTA_VALIDATION_SEASON = "2024-25"
 DEFAULT_PROBE_GAME_ID = "0022501198"
 NBA_API_REQUEST_TIMEOUT_SEC = 30
 NBA_API_PACING_DELAY_SEC = 0.6

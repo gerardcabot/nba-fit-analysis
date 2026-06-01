@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
@@ -188,3 +189,43 @@ def run_ablation(
             impact_context=impact_context,
         )
     return report
+
+
+def ablation_report_to_dict(report: AblationReport) -> dict[str, object]:
+    """Serialize ablation comparison for ``reports/validation/sota/ablation_metrics.json``."""
+    variants: dict[str, dict[str, object]] = {}
+    for key, result in report.variants.items():
+        variants[key] = {
+            "variant": result.variant,
+            "label": _variant_label(result.variant),
+            "n_movements": result.n_movements,
+            "mean_raw_fit": result.mean_raw_fit,
+            "mean_calibrated_percentile": result.mean_calibrated_percentile,
+            "brier": result.brier,
+            "ece": result.ece,
+            "decile_lift": result.decile_lift,
+            "spearman": result.spearman,
+        }
+    return {"season": report.season, "variants": variants}
+
+
+def _variant_label(variant: AblationVariant) -> str:
+    labels = {
+        "A": "A (profile only)",
+        "AB": "A+B (role/need)",
+        "ABC": "A+B+C (lineup impact)",
+        "D": "D (full + isotonic calibration)",
+    }
+    return labels.get(variant, variant)
+
+
+def write_ablation_metrics(
+    report: AblationReport,
+    path: Path,
+) -> Path:
+    """Write ablation comparison JSON under ``reports/validation/sota/``."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(ablation_report_to_dict(report), indent=2), encoding="utf-8")
+    return path
