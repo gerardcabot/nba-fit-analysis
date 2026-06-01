@@ -7,6 +7,16 @@ from nba_fit.normalize.players import (
     load_players_table,
     write_players_table,
 )
+from nba_fit.normalize.lineups import (
+    build_lineup_units_table,
+    build_onoff_table,
+    interim_lineup_units_path,
+    interim_onoff_path,
+    load_lineup_units_table,
+    load_onoff_table,
+    write_lineup_units_table,
+    write_onoff_table,
+)
 from nba_fit.normalize.teams import (
     build_teams_table,
     interim_teams_path,
@@ -26,4 +36,12 @@ __all__ = [
     "write_teams_table",
     "load_teams_table",
     "interim_teams_path",
+    "build_lineup_units_table",
+    "build_onoff_table",
+    "write_lineup_units_table",
+    "write_onoff_table",
+    "load_lineup_units_table",
+    "load_onoff_table",
+    "interim_lineup_units_path",
+    "interim_onoff_path",
 ]

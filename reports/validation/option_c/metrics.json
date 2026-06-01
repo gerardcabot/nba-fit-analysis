@@ -1,0 +1,42 @@
+{
+  "season": "2024-25",
+  "started_at": "2026-05-28T17:17:39.870847+00:00",
+  "impact_max_games": 30,
+  "player_id": 2544,
+  "team_id": 1610612747,
+  "possessions": {
+    "games_ingested": 30,
+    "total_possession_rows": 5991,
+    "per_game_min": 186,
+    "per_game_max": 219,
+    "per_game_mean": 199.7
+  },
+  "rapm": {
+    "n_players": 505,
+    "low_sample_count": 505,
+    "net_rapm_min": -0.24422972872608237,
+    "net_rapm_max": 0.2963796764838695,
+    "net_rapm_mean": -6.5953843047039e-19,
+    "net_rapm_std": 0.05316175634652603,
+    "net_rapm_median": -1.975552082349068e-08,
+    "lebron_net_rapm": 0.2963796764838695
+  },
+  "lineup_sim": {
+    "projected_net_rating_delta": 0.2963796764838695,
+    "data_source": "lineup_units"
+  },
+  "lineup_deltas": [
+    {
+      "lineup_key": "team_1610612747_swap",
+      "lineup_label": "rotation swap (replaces 1642439)",
+      "projected_net_rating_delta": 0.2963796764838695,
+      "minutes": 1.0
+    }
+  ],
+  "figures": [
+    "reports\\validation\\option_c\\figures\\09_possession_rate.png",
+    "reports\\validation\\option_c\\figures\\10_rapm_distribution.png",
+    "reports\\validation\\option_c\\figures\\11_lineup_delta_bar.png"
+  ],
+  "finished_at": "2026-05-28T17:22:51.317930+00:00"
+}

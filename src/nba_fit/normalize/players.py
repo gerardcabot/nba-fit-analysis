@@ -96,6 +96,24 @@ def load_players_table(season: str) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def rotation_minutes_from_players(players_raw: pd.DataFrame) -> dict[int, float]:
+    """Map player_id -> season minutes from league-dash player table."""
+    pid_col = "player_id" if "player_id" in players_raw.columns else "PLAYER_ID"
+    min_col = PLAYER_STAT_MIN if PLAYER_STAT_MIN in players_raw.columns else "MIN"
+    if pid_col not in players_raw.columns or min_col not in players_raw.columns:
+        return {}
+    out: dict[int, float] = {}
+    for _, row in players_raw.iterrows():
+        val = row[min_col]
+        if pd.isna(val):
+            continue
+        if isinstance(val, str) and ":" in val:
+            parts = val.split(":")
+            val = float(parts[0]) + float(parts[1]) / 60.0
+        out[int(row[pid_col])] = float(val)
+    return out
+
+
 def players_with_stable_minutes(df: pd.DataFrame) -> pd.DataFrame:
     """Filter to players meeting MIN_SEASON_MINUTES_STABLE_RATES (feature eligibility)."""
     from nba_fit.config.settings import MIN_SEASON_MINUTES_STABLE_RATES

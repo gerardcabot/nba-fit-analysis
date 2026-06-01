@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from nba_fit.features.season_context import SeasonFitContext
+from nba_fit.models.impact_context import ImpactFitContext
+from nba_fit.models.role_context import RoleFitContext
 from nba_fit.scoring.fit_card import build_fit_card
 from nba_fit.scoring.fit_index import FitIndexTable, build_fit_index_table
 
@@ -25,13 +27,41 @@ class FitRanker:
         *,
         prefer_interim: bool = True,
         prefer_api: bool = True,
+        synthetic: bool = False,
     ) -> FitRanker:
         context = SeasonFitContext.build(
             season=season,
-            prefer_interim=prefer_interim,
-            prefer_api=prefer_api,
+            prefer_interim=prefer_interim and not synthetic,
+            prefer_api=prefer_api and not synthetic,
         )
-        table = build_fit_index_table(context)
+        role_context: RoleFitContext | None = None
+        impact_context: ImpactFitContext | None = None
+        if not synthetic and prefer_interim:
+            try:
+                role_context = RoleFitContext.from_season(
+                    context.season,
+                    prefer_interim=True,
+                    prefer_api=prefer_api,
+                    synthetic=False,
+                    persist=False,
+                )
+            except (FileNotFoundError, ValueError):
+                role_context = None
+            try:
+                impact_context = ImpactFitContext.from_season(
+                    context.season,
+                    prefer_interim=True,
+                    synthetic=False,
+                    persist=False,
+                )
+            except (FileNotFoundError, ValueError):
+                impact_context = None
+        table = build_fit_index_table(
+            context,
+            role_context=role_context,
+            impact_context=impact_context,
+            synthetic=synthetic,
+        )
         return cls(context=context, table=table)
 
     def rank_destinations_for_player(
@@ -80,8 +110,20 @@ class FitRanker:
             out = out.head(top_n)
         return out.reset_index(drop=True)
 
-    def fit_card(self, player_id: int, team_id: int) -> dict:
-        return build_fit_card(player_id, team_id, self.table, self.context)
+    def fit_card(
+        self,
+        player_id: int,
+        team_id: int,
+        *,
+        role_context: RoleFitContext | None = None,
+    ) -> dict:
+        return build_fit_card(
+            player_id,
+            team_id,
+            self.table,
+            self.context,
+            role_context=role_context,
+        )
 
 
 def rank_destinations_for_player(
