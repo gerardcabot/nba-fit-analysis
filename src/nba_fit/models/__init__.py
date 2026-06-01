@@ -1,6 +1,7 @@
 """Fit models, embeddings, archetypes, and lineup impact (Option B+ / C)."""
 
 from nba_fit.models.archetypes import ArchetypeArtifacts, fit_archetypes
+from nba_fit.models.calibration import FitCalibrator, calibrate_fit_table
 from nba_fit.models.constants import (
     LINEUP_IMPACT_WEIGHT,
     LINEUP_SIM_TOP_N,
@@ -15,7 +16,9 @@ from nba_fit.models.role_context import RoleFitContext, train_roles_for_season
 from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts, fit_role_embeddings
 
 __all__ = [
+    "FitCalibrator",
     "ArchetypeArtifacts",
+    "calibrate_fit_table",
     "ImpactFitContext",
     "LINEUP_IMPACT_WEIGHT",
     "LINEUP_SIM_TOP_N",

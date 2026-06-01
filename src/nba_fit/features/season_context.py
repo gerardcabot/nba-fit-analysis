@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,45 @@ from nba_fit.normalize.teams import load_teams_table
 
 DEMO_PLAYER_ID = 2544
 DEMO_TEAM_ID = 1610612747
+
+# Game-log date column candidates for temporal ``as_of`` filtering.
+GAMELOG_DATE_COLUMNS: tuple[str, ...] = ("GAME_DATE", "game_date", "GAME_DATE_EST")
+
+
+def filter_gamelogs_as_of(
+    gamelogs: pd.DataFrame,
+    move_date: date,
+    *,
+    date_col: str | None = None,
+) -> pd.DataFrame:
+    """
+    Keep only game-log rows strictly before *move_date* (trade deadline / FA move).
+
+    Intended for leakage-safe backtests: features and rates should reflect
+    pre-move performance only. When *date_col* is omitted, the first matching
+    column from :data:`GAMELOG_DATE_COLUMNS` is used.
+
+    Raises ``KeyError`` if no date column is found.
+    """
+    if gamelogs.empty:
+        return gamelogs.copy()
+
+    col = date_col
+    if col is None:
+        for candidate in GAMELOG_DATE_COLUMNS:
+            if candidate in gamelogs.columns:
+                col = candidate
+                break
+    if col is None or col not in gamelogs.columns:
+        raise KeyError(
+            f"gamelogs missing date column; tried {GAMELOG_DATE_COLUMNS!r}, "
+            f"got {list(gamelogs.columns)}"
+        )
+
+    parsed = pd.to_datetime(gamelogs[col], errors="coerce")
+    cutoff = pd.Timestamp(move_date)
+    mask = parsed < cutoff
+    return gamelogs.loc[mask].copy()
 
 _TEAM_ABBREV: dict[int, str] = {
     1610612737: "ATL",
@@ -60,6 +100,20 @@ class SeasonFitContext:
     players: dict[int, PlayerVector] = field(default_factory=dict)
     teams: dict[int, TeamVector] = field(default_factory=dict)
     source: str = "synthetic"
+    as_of_date: date | None = None
+
+    def as_of(self, move_date: date | None) -> SeasonFitContext:
+        """
+        Return a context scoped to stats available before *move_date*.
+
+        **Current (Phase 1):** returns a shallow copy with ``as_of_date`` set.
+        Full re-materialization from filtered game logs and interim tables is
+        deferred until ``playergamelogs`` ingest is wired; callers should use
+        :func:`filter_gamelogs_as_of` on raw logs when building rates.
+
+        When *move_date* is ``None``, clears the temporal cutoff (full season).
+        """
+        return replace(self, as_of_date=move_date)
 
     @classmethod
     def build(

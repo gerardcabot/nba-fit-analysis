@@ -46,6 +46,7 @@ from nba_fit.models.constants import (
     MODEL_RANDOM_STATE,
 )
 from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts, role_embedding_dir
+from nba_fit.models.role_taxonomy import industry_roles_for_labels, map_heuristic_to_industry
 
 # Heuristic archetype vocabulary (basketball-facing labels for cluster centroids).
 ARCHETYPE_LABEL_VOCAB: tuple[str, ...] = (
@@ -74,6 +75,7 @@ class ArchetypeArtifacts:
     player_ids: np.ndarray
     cluster_ids: np.ndarray
     archetype_labels: np.ndarray
+    industry_roles: np.ndarray
     centroids: np.ndarray
     clusterer: GaussianMixture | HDBSCAN
 
@@ -82,6 +84,12 @@ class ArchetypeArtifacts:
         if len(hits) == 0:
             return None
         return str(self.archetype_labels[int(hits[0])])
+
+    def industry_role_for(self, player_id: int) -> str | None:
+        hits = np.where(self.player_ids == player_id)[0]
+        if len(hits) == 0:
+            return None
+        return str(self.industry_roles[int(hits[0])])
 
     def cluster_for(self, player_id: int) -> int | None:
         hits = np.where(self.player_ids == player_id)[0]
@@ -190,6 +198,7 @@ def fit_archetypes(
 
     id_to_label = dict(zip(unique_ids, labels, strict=False))
     archetype_labels = np.array([id_to_label[int(c)] for c in cluster_ids], dtype=object)
+    industry_roles = np.array(industry_roles_for_labels(archetype_labels.tolist()), dtype=object)
 
     return ArchetypeArtifacts(
         season=embeddings.season,
@@ -198,6 +207,7 @@ def fit_archetypes(
         player_ids=player_ids,
         cluster_ids=cluster_ids.astype(int),
         archetype_labels=archetype_labels,
+        industry_roles=industry_roles,
         centroids=centroid_matrix,
         clusterer=model,
     )
@@ -215,6 +225,7 @@ def save_archetypes(artifacts: ArchetypeArtifacts, path: Path | None = None) -> 
             COL_PLAYER_ID: artifacts.player_ids,
             "cluster_id": artifacts.cluster_ids,
             "archetype_label": artifacts.archetype_labels,
+            "industry_role": artifacts.industry_roles,
         }
     ).to_parquet(out_dir / "player_archetypes.parquet", index=False)
     np.save(out_dir / "centroids.npy", artifacts.centroids)
@@ -235,6 +246,13 @@ def load_archetypes(season: str, *, root: Path | None = None) -> ArchetypeArtifa
     table = pd.read_parquet(in_dir / "player_archetypes.parquet")
     clusterer = joblib.load(in_dir / "clusterer.joblib")
     centroids = np.load(in_dir / "centroids.npy")
+    if "industry_role" in table.columns:
+        industry_roles = table["industry_role"].to_numpy(dtype=object)
+    else:
+        industry_roles = np.array(
+            [map_heuristic_to_industry(str(l)) for l in table["archetype_label"].to_numpy(dtype=object)],
+            dtype=object,
+        )
     return ArchetypeArtifacts(
         season=meta["season"],
         clusterer_name=meta["clusterer_name"],
@@ -242,6 +260,7 @@ def load_archetypes(season: str, *, root: Path | None = None) -> ArchetypeArtifa
         player_ids=table[COL_PLAYER_ID].to_numpy(dtype=int),
         cluster_ids=table["cluster_id"].to_numpy(dtype=int),
         archetype_labels=table["archetype_label"].to_numpy(dtype=object),
+        industry_roles=industry_roles,
         centroids=centroids,
         clusterer=clusterer,
     )

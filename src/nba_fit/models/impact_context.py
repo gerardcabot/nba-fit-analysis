@@ -18,10 +18,13 @@ from nba_fit.models.lineup_model import (
 )
 from nba_fit.models.rapm import (
     RapmArtifacts,
+    check_degenerate_rapm,
     fit_rapm_from_lineup_table,
+    fit_rapm_from_possessions,
     fit_rapm_from_stints,
     load_rapm,
     save_rapm,
+    stints_from_possessions,
     synthetic_stint_matrix,
 )
 from nba_fit.models.role_context import RoleFitContext
@@ -29,6 +32,7 @@ from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts
 from nba_fit.normalize.lineups import load_lineup_units_table
 from nba_fit.normalize.players import load_players_table
 from nba_fit.normalize.players import rotation_minutes_from_players
+from nba_fit.normalize.possessions import has_possessions_partition, load_possessions_table
 
 
 @dataclass
@@ -42,6 +46,43 @@ class ImpactFitContext:
     lineup_stints: pd.DataFrame = field(default_factory=pd.DataFrame)
     player_team_map: pd.DataFrame = field(default_factory=pd.DataFrame)
     rotation_minutes: dict[int, float] = field(default_factory=dict)
+    rapm_source: str = "lineup_units"
+    degenerate_rapm: bool = False
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_possessions_table(
+        cls,
+        possessions: pd.DataFrame,
+        lineups: pd.DataFrame,
+        embeddings: RoleEmbeddingArtifacts,
+        *,
+        season: str,
+        players_raw: pd.DataFrame | None = None,
+        persist: bool = False,
+    ) -> ImpactFitContext:
+        """Train RAPM from possession-native stint matrix; lineup model from lineups."""
+        rapm = fit_rapm_from_possessions(possessions, season=season)
+        lineup_model = fit_lineup_model(lineups, embeddings, season=season)
+        if persist:
+            save_rapm(rapm)
+            save_lineup_model(lineup_model)
+
+        stints = stints_from_possessions(possessions)
+        player_team_map, rotation_minutes = _roster_context(players_raw)
+
+        return cls(
+            season=season,
+            rapm=rapm,
+            lineup_model=lineup_model,
+            embeddings=embeddings,
+            lineup_stints=stints,
+            player_team_map=player_team_map,
+            rotation_minutes=rotation_minutes,
+            rapm_source=rapm.rapm_source,
+            degenerate_rapm=rapm.degenerate,
+            metadata=dict(rapm.metadata),
+        )
 
     @classmethod
     def from_lineup_table(
@@ -70,6 +111,9 @@ class ImpactFitContext:
             lineup_stints=stints,
             player_team_map=player_team_map,
             rotation_minutes=rotation_minutes,
+            rapm_source=rapm.rapm_source,
+            degenerate_rapm=rapm.degenerate,
+            metadata=dict(rapm.metadata),
         )
 
     @classmethod
@@ -100,6 +144,20 @@ class ImpactFitContext:
             season=season,
             stint_weights=weights,
         )
+        rapm = check_degenerate_rapm(
+            RapmArtifacts(
+                season=rapm.season,
+                player_ids=rapm.player_ids,
+                orapm=rapm.orapm,
+                drapm=rapm.drapm,
+                net_rapm=rapm.net_rapm,
+                stint_possessions=rapm.stint_possessions,
+                low_sample_flag=rapm.low_sample_flag,
+                ridge_alpha=rapm.ridge_alpha,
+                recency_half_life_games=rapm.recency_half_life_games,
+                rapm_source="synthetic",
+            )
+        )
         lineup_model = fit_lineup_model(lineups, role_context.embeddings, season=season)
         if persist:
             save_rapm(rapm)
@@ -127,6 +185,9 @@ class ImpactFitContext:
             lineup_stints=stints,
             player_team_map=player_team_map,
             rotation_minutes=rotation_minutes,
+            rapm_source=rapm.rapm_source,
+            degenerate_rapm=rapm.degenerate,
+            metadata=dict(rapm.metadata),
         )
 
     @classmethod
@@ -152,6 +213,9 @@ class ImpactFitContext:
             lineup_stints=stints,
             player_team_map=player_team_map,
             rotation_minutes=rotation_minutes,
+            rapm_source=rapm.rapm_source,
+            degenerate_rapm=rapm.degenerate,
+            metadata=dict(rapm.metadata),
         )
 
     @classmethod
@@ -176,6 +240,16 @@ class ImpactFitContext:
         try:
             lineups = load_lineup_units_table(season)
             players_raw = load_players_table(season)
+            if has_possessions_partition(season):
+                possessions = load_possessions_table(season)
+                return cls.from_possessions_table(
+                    possessions,
+                    lineups,
+                    role_context.embeddings,
+                    season=season,
+                    players_raw=players_raw,
+                    persist=persist,
+                )
             return cls.from_lineup_table(
                 lineups,
                 role_context.embeddings,

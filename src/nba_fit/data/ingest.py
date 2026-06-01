@@ -8,19 +8,24 @@ import pandas as pd
 
 from nba_fit.config.settings import (
     INGEST_IMPACT_MAX_GAMES_DEV,
+    INGEST_IMPACT_MAX_GAMES_UNLIMITED,
     INGEST_TIER_IMPACT,
     INGEST_TIER_MVP,
     INGEST_TIER_ROLE,
+    INGEST_TIER_TACTICAL,
     OPTION_A_MVP_ENDPOINTS,
     OPTION_B_ROLE_ENDPOINTS,
     OPTION_C_IMPACT_ENDPOINTS,
+    OPTION_D_TACTICAL_ENDPOINTS,
     get_settings,
 )
 from nba_fit.data.client import FetchResult, NBAClient
 from nba_fit.data.fetchers.league_dash import fetch_option_a_mvp
 from nba_fit.data.fetchers.lineups_onoff import fetch_option_b_role
 from nba_fit.data.fetchers.pbp import fetch_option_c_impact
+from nba_fit.data.fetchers.tactical import fetch_option_d_tactical
 from nba_fit.data.storage import ensure_dirs
+from nba_fit.features.store import materialize_features
 from nba_fit.normalize.lineups import (
     build_lineup_units_table,
     build_onoff_table,
@@ -35,6 +40,7 @@ _TIER_ENDPOINTS: dict[str, tuple[str, ...]] = {
     INGEST_TIER_MVP: OPTION_A_MVP_ENDPOINTS,
     INGEST_TIER_ROLE: OPTION_B_ROLE_ENDPOINTS,
     INGEST_TIER_IMPACT: OPTION_C_IMPACT_ENDPOINTS,
+    INGEST_TIER_TACTICAL: OPTION_D_TACTICAL_ENDPOINTS,
 }
 
 
@@ -56,6 +62,46 @@ class IngestResult:
     possessions_paths: list[str] = field(default_factory=list)
     possessions_rows: int = 0
     games_ingested: int = 0
+    features_materialized: bool = False
+    player_features_path: str | None = None
+    team_features_path: str | None = None
+    scaling_params_path: str | None = None
+
+
+def resolve_impact_max_games(
+    *,
+    max_games: int | None,
+    full_season: bool = False,
+) -> int | None:
+    """
+    Resolve impact-tier game cap.
+
+    * ``full_season=True`` or ``max_games=0`` → no cap (``None``).
+    * ``max_games=None`` (default) → dev cap ``INGEST_IMPACT_MAX_GAMES_DEV``.
+    * explicit positive ``max_games`` → that cap.
+    """
+    if full_season or max_games == INGEST_IMPACT_MAX_GAMES_UNLIMITED:
+        return None
+    if max_games is None:
+        return INGEST_IMPACT_MAX_GAMES_DEV
+    return max_games
+
+
+def _run_ingest_tactical(
+    *,
+    season: str,
+    tier: str,
+    use_cache: bool,
+    nba_client: NBAClient,
+    endpoints: tuple[str, ...],
+) -> IngestResult:
+    fetched = fetch_option_d_tactical(
+        nba_client,
+        season=season,
+        use_cache=use_cache,
+        endpoints=endpoints,
+    )
+    return IngestResult(season=season, tier=tier, fetched=fetched)
 
 
 def resolve_endpoints(tier: str) -> tuple[str, ...]:
@@ -85,7 +131,7 @@ def _run_ingest_mvp(
     teams_df = build_teams_table(season, fetched)
     players_out = write_players_table(players_df, season)
     teams_out = write_teams_table(teams_df, season)
-    return IngestResult(
+    result = IngestResult(
         season=season,
         tier=tier,
         fetched=fetched,
@@ -94,6 +140,12 @@ def _run_ingest_mvp(
         player_rows=len(players_df),
         team_rows=len(teams_df),
     )
+    store = materialize_features(season)
+    result.features_materialized = True
+    result.player_features_path = str(store.player_path)
+    result.team_features_path = str(store.team_path)
+    result.scaling_params_path = str(store.scaling_path)
+    return result
 
 
 def _run_ingest_impact(
@@ -178,13 +230,15 @@ def run_ingest(
     use_cache: bool = True,
     client: NBAClient | None = None,
     max_games: int | None = None,
+    full_season: bool = False,
 ) -> IngestResult:
     """
     Fetch tier endpoints and write interim Parquet tables.
 
-    * ``mvp`` — Option A player/team league-dash tables.
+    * ``mvp`` — Option A player/team league-dash tables (+ feature store materialization).
     * ``role`` — Option B lineup units and on/off interim tables.
     * ``impact`` — Option C play-by-play, rotation, and possession interim tables.
+    * ``tactical`` — Option D hustle, defend, and gravity league-bulk raw cache.
 
     Returns summary paths and row counts.
     """
@@ -212,8 +266,16 @@ def run_ingest(
             nba_client=nba_client,
             endpoints=endpoints,
         )
+    if tier_key == INGEST_TIER_TACTICAL:
+        return _run_ingest_tactical(
+            season=season,
+            tier=tier_key,
+            use_cache=use_cache,
+            nba_client=nba_client,
+            endpoints=endpoints,
+        )
     if tier_key == INGEST_TIER_IMPACT:
-        cap = INGEST_IMPACT_MAX_GAMES_DEV if max_games is None else max_games
+        cap = resolve_impact_max_games(max_games=max_games, full_season=full_season)
         return _run_ingest_impact(
             season=season,
             tier=tier_key,

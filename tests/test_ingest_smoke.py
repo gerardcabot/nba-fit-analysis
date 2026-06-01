@@ -143,8 +143,9 @@ def test_resolve_endpoints_unknown():
         resolve_endpoints("full")
 
 
+@patch("nba_fit.data.ingest.materialize_features")
 @patch("nba_fit.data.ingest.fetch_option_a_mvp")
-def test_run_ingest_writes_interim_parquet(mock_fetch, tmp_path):
+def test_run_ingest_writes_interim_parquet(mock_fetch, mock_materialize, tmp_path):
     settings = _fake_settings(tmp_path)
     season = settings.default_season
 
@@ -152,6 +153,17 @@ def test_run_ingest_writes_interim_parquet(mock_fetch, tmp_path):
         return {ep: _mock_fetch_result(ep, season) for ep in endpoints}
 
     mock_fetch.side_effect = _side_effect
+    from nba_fit.features.store import FeatureStoreResult
+
+    mock_materialize.return_value = FeatureStoreResult(
+        season=season,
+        player_path=settings.data_features / "player_features_scaled" / f"season={season}" / "data.parquet",
+        team_path=settings.data_features / "team_features_scaled" / f"season={season}" / "data.parquet",
+        scaling_path=settings.data_features / "scaling_params" / f"season={season}" / "data.parquet",
+        player_rows=2,
+        team_rows=1,
+        scaling_rows=10,
+    )
 
     with (
         patch("nba_fit.data.ingest.get_settings", return_value=settings),

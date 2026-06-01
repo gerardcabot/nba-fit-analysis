@@ -10,6 +10,7 @@ from nba_fit.features.team_need import TeamNeedProfile
 from nba_fit.features.vectors import PlayerVector, TeamVector
 from nba_fit.models.archetypes import ArchetypeArtifacts
 from nba_fit.models.role_embeddings import RoleEmbeddingArtifacts
+from nba_fit.models.constants import LINEUP_IMPACT_NEUTRAL_SCORE, ROLE_FIT_NEUTRAL_SCORE
 from nba_fit.scoring.constants import (
     PLAYER_DEF_GROUPS,
     PLAYER_OFF_GROUPS,
@@ -17,16 +18,17 @@ from nba_fit.scoring.constants import (
     PLAYER_SHOT_GROUPS,
     PLAYER_SPACING_GROUPS,
     PLAYER_USAGE_GROUPS,
+    REPLACEMENT_TEAM_GAP_WEIGHT,
+    SIGMOID_SCALE,
     TEAM_DEF_NEED_GROUPS,
     TEAM_OFF_NEED_GROUPS,
     TEAM_ROLE_NEED_GROUPS,
     TEAM_SHOT_NEED_GROUPS,
     TEAM_USAGE_GROUPS,
+    USAGE_CREATOR_SURPLUS_WEIGHT,
 )
 from nba_fit.scoring._similarity import cosine_similarity as _cosine_similarity
 from nba_fit.scoring._similarity import sigmoid as _sigmoid
-
-_SIGMOID_SCALE = 0.75
 
 
 def _complementarity_score(
@@ -44,7 +46,7 @@ def _complementarity_score(
             p[idx] = -p[idx]
     n = min(len(p), len(team_needs))
     raw = float(np.mean(p[:n] * team_needs[:n]))
-    return _sigmoid(raw * _SIGMOID_SCALE)
+    return _sigmoid(raw * SIGMOID_SCALE)
 
 
 def offensive_fit(player: PlayerVector, team: TeamVector) -> float:
@@ -77,8 +79,8 @@ def usage_compatibility(player: PlayerVector, team: TeamVector) -> float:
     player_usage = float(p[0])
     headroom = float(t[0]) if len(t) > 0 else 0.0
     creator_surplus = float(t[1]) if len(t) > 1 else 0.0
-    gap = headroom - player_usage + 0.3 * creator_surplus
-    return _sigmoid(gap * _SIGMOID_SCALE)
+    gap = headroom - player_usage + USAGE_CREATOR_SURPLUS_WEIGHT * creator_surplus
+    return _sigmoid(gap * SIGMOID_SCALE)
 
 
 def shot_profile_fit(player: PlayerVector, team: TeamVector) -> float:
@@ -107,7 +109,9 @@ def replacement_upgrade(player: PlayerVector, team: TeamVector) -> float:
     player_level += float(np.mean(defn)) if len(defn) else 0.0
     team_gap = team.select_groups(*TEAM_DEF_NEED_GROUPS, *TEAM_OFF_NEED_GROUPS)
     replacement = float(np.mean(team_gap)) if len(team_gap) else 0.0
-    return _sigmoid((player_level - 0.25 * replacement) * _SIGMOID_SCALE)
+    return _sigmoid(
+        (player_level - REPLACEMENT_TEAM_GAP_WEIGHT * replacement) * SIGMOID_SCALE
+    )
 
 
 def compute_all_submetrics(
@@ -118,6 +122,7 @@ def compute_all_submetrics(
     embeddings: RoleEmbeddingArtifacts | None = None,
     archetypes: ArchetypeArtifacts | None = None,
     impact_context: object | None = None,
+    degraded: list[str] | None = None,
 ) -> dict[str, float]:
     out = {
         "offensive_fit": offensive_fit(player, team),
@@ -138,7 +143,9 @@ def compute_all_submetrics(
             archetypes=archetypes,
         )
     else:
-        out["team_need_fit"] = 0.5
+        out["team_need_fit"] = ROLE_FIT_NEUTRAL_SCORE
+        if degraded is not None:
+            degraded.append("team_need_fit")
 
     from nba_fit.scoring.lineup_fit import lineup_impact_for_pair
 
@@ -156,9 +163,9 @@ def compute_all_submetrics(
         )
         out["lineup_impact_fit"] = fit_score
     else:
-        from nba_fit.models.constants import LINEUP_IMPACT_NEUTRAL_SCORE
-
         out["lineup_impact_fit"] = LINEUP_IMPACT_NEUTRAL_SCORE
+        if degraded is not None:
+            degraded.append("lineup_impact_fit")
     return out
 
 

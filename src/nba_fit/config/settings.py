@@ -212,6 +212,32 @@ INTERIM_TABLE_POSSESSIONS: str = "possessions"
 # cap keeps ``ingest --tier impact`` usable during development (see REQUEST_* policy).
 INGEST_IMPACT_MAX_GAMES_DEV: int = 50
 
+# ``max_games=0`` or ``None`` (via ``--full-season``) means no cap on impact pulls.
+INGEST_IMPACT_MAX_GAMES_UNLIMITED: int = 0
+
+# ---------------------------------------------------------------------------
+# Ingest tiers (Option D / Phase 1 — tactical hustle, defend, gravity bulk)
+# ---------------------------------------------------------------------------
+
+# CLI tier name for supplemental league-bulk tactical tables
+INGEST_TIER_TACTICAL: str = "tactical"
+
+# Option D tactical endpoints (season-scoped league bulk; no per-game chunking)
+OPTION_D_TACTICAL_ENDPOINTS: tuple[str, ...] = (
+    "leaguehustlestatsplayer",
+    "leaguehustlestatsteam",
+    "leaguedashptdefend",
+    "gravityleaders",
+)
+
+# Primary nba_api dataset keys for tactical endpoints (multi-frame responses)
+TACTICAL_PRIMARY_DATASET: dict[str, str] = {
+    "leaguehustlestatsplayer": "HustleStatsPlayer",
+    "leaguehustlestatsteam": "HustleStatsTeam",
+    "leaguedashptdefend": "LeagueDashPTDefend",
+    "gravityleaders": "leaders",
+}
+
 # Box-score columns used in MVP visuals / feature eligibility
 PLAYER_STAT_PTS: str = "PTS"
 PLAYER_STAT_USG_PCT: str = "USG_PCT"
