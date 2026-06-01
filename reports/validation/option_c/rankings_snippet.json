@@ -1,0 +1,159 @@
+{
+  "top_destinations": [
+    {
+      "rank": 1,
+      "team_id": 1610612755,
+      "team": "Philadelphia 76ers",
+      "overall_fit_percentile": 69.39953134153485,
+      "raw_fit_score": 0.5242543053179235,
+      "offensive_fit": 0.4235247177952016,
+      "defensive_fit": 0.5168027101946869,
+      "role_alignment": 0.7504489493897274,
+      "usage_compatibility": 0.31998247218467335,
+      "shot_profile_fit": 0.5194006542853717,
+      "spacing_gravity_fit": 0.5194006542853717,
+      "replacement_upgrade": 0.6059665108885901,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    },
+    {
+      "rank": 2,
+      "team_id": 1610612742,
+      "team": "Dallas Mavericks",
+      "overall_fit_percentile": 60.59461042765085,
+      "raw_fit_score": 0.5155120069008186,
+      "offensive_fit": 0.4761610244152737,
+      "defensive_fit": 0.534253821627915,
+      "role_alignment": 0.786371551778088,
+      "usage_compatibility": 0.17453287706421539,
+      "shot_profile_fit": 0.4911736616601476,
+      "spacing_gravity_fit": 0.4911736616601476,
+      "replacement_upgrade": 0.5962055773021165,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    },
+    {
+      "rank": 3,
+      "team_id": 1610612740,
+      "team": "New Orleans Pelicans",
+      "overall_fit_percentile": 59.71001757469244,
+      "raw_fit_score": 0.5146396973455688,
+      "offensive_fit": 0.4810754784300441,
+      "defensive_fit": 0.5239723561601539,
+      "role_alignment": 0.6652640257155256,
+      "usage_compatibility": 0.29731017022499384,
+      "shot_profile_fit": 0.49608170691410675,
+      "spacing_gravity_fit": 0.49608170691410675,
+      "replacement_upgrade": 0.5835654981151815,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    },
+    {
+      "rank": 4,
+      "team_id": 1610612766,
+      "team": "Charlotte Hornets",
+      "overall_fit_percentile": 54.888693614528414,
+      "raw_fit_score": 0.5100002934925446,
+      "offensive_fit": 0.44375048923169186,
+      "defensive_fit": 0.45328660243664554,
+      "role_alignment": 0.6955467695037078,
+      "usage_compatibility": 0.3308684239211563,
+      "shot_profile_fit": 0.5057864311287769,
+      "spacing_gravity_fit": 0.5057864311287769,
+      "replacement_upgrade": 0.5893754376466985,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    },
+    {
+      "rank": 5,
+      "team_id": 1610612762,
+      "team": "Utah Jazz",
+      "overall_fit_percentile": 53.892794376098415,
+      "raw_fit_score": 0.5089434473400183,
+      "offensive_fit": 0.49692279487617497,
+      "defensive_fit": 0.48907776355132304,
+      "role_alignment": 0.6442240121994628,
+      "usage_compatibility": 0.3068719794031562,
+      "shot_profile_fit": 0.48928768612386864,
+      "spacing_gravity_fit": 0.48928768612386864,
+      "replacement_upgrade": 0.5740315469121242,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    }
+  ],
+  "lakers_fit_card_excerpt": {
+    "player_id": 2544,
+    "team_id": 1610612747,
+    "team": "Los Angeles Lakers",
+    "season": "2024-25",
+    "overall_fit_percentile": 15.667838312829526,
+    "raw_fit_score": 0.4657047359655778,
+    "submetrics": {
+      "offensive_fit": 0.5026176012988036,
+      "defensive_fit": 0.5114632108605759,
+      "role_alignment": 0.441031985221122,
+      "usage_compatibility": 0.03429762657675769,
+      "shot_profile_fit": 0.5038016650455014,
+      "spacing_gravity_fit": 0.5038016650455014,
+      "replacement_upgrade": 0.5960526622983476,
+      "team_need_fit": 0.6000000000000001,
+      "lineup_impact_fit": 0.5
+    },
+    "archetype": "high_usage_creator",
+    "archetype_id": 4,
+    "role_fit": 0.5538140189354885,
+    "comps": [
+      {
+        "player_id": 1626164,
+        "player": "Devin Booker",
+        "distance": 3.2702663872511626,
+        "archetype": "high_usage_creator"
+      },
+      {
+        "player_id": 201142,
+        "player": "Kevin Durant",
+        "distance": 3.702164654364368,
+        "archetype": "high_usage_creator"
+      },
+      {
+        "player_id": 203081,
+        "player": "Damian Lillard",
+        "distance": 3.8279760362669117,
+        "archetype": "high_usage_creator"
+      },
+      {
+        "player_id": 202331,
+        "player": "Paul George",
+        "distance": 4.124769585048937,
+        "archetype": "high_usage_creator"
+      },
+      {
+        "player_id": 201935,
+        "player": "James Harden",
+        "distance": 4.336478517893528,
+        "archetype": "movement_shooter"
+      }
+    ],
+    "comps_note": "Nearest-neighbor comps in role embedding space (Option B)",
+    "data_source": "interim",
+    "lineup_synergy": {
+      "projected_net_rating_delta": 0.2963796764838695,
+      "top_lineups": [
+        {
+          "lineup_key": "team_1610612747_swap",
+          "lineup_label": "rotation swap (replaces 1642439)",
+          "player_ids": [
+            2544
+          ],
+          "baseline_net_rating": 0.0,
+          "projected_net_rating_delta": 0.2963796764838695,
+          "minutes": 1.0,
+          "replaced_player_id": 1642439
+        }
+      ],
+      "data_source": "lineup_units",
+      "note": "Minute-weighted lineup deltas from RAPM swap + optional embedding lineup model (train roles + ingest --tier role for live data)."
+    },
+    "projected_net_rating_delta": 0.2963796764838695
+  }
+}

@@ -257,13 +257,15 @@ ENDPOINT_REGISTRY: dict[str, EndpointSpec] = {
         "leaguedashlineups",
         "lineups",
         "essential",
-        "Five-man lineup performance.",
+        "Five-man lineup performance (Advanced measure for OFF/DEF/NET ratings).",
+        measure_type_detailed_defense="Advanced",
     ),
     "teamdashlineups": _spec(
         "teamdashlineups",
         "lineups",
         "essential",
-        "Team-specific lineup table.",
+        "Team-specific lineup table (Advanced measure for OFF/DEF/NET ratings).",
+        measure_type_detailed_defense="Advanced",
     ),
     "teamplayeronoffsummary": _spec(
         "teamplayeronoffsummary",
