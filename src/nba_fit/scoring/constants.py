@@ -132,3 +132,23 @@ RISK_DAMPENER_MAX: float = 0.15
 # Uncertainty band half-width in percentile points: base + spread * scale.
 UNCERTAINTY_PERCENTILE_BASE: float = 4.0
 UNCERTAINTY_PERCENTILE_SPREAD_SCALE: float = 18.0
+
+# ---------------------------------------------------------------------------
+# Submetric sigmoid / complementarity tuning (Option A)
+# ---------------------------------------------------------------------------
+# Shared scale for gap-based submetrics (usage, replacement, complementarity).
+SIGMOID_SCALE: float = 0.75
+
+# Usage headroom: bonus when roster has creator surplus relative to player usage.
+USAGE_CREATOR_SURPLUS_WEIGHT: float = 0.3
+
+# Replacement upgrade: discount team gap when estimating player level vs need.
+REPLACEMENT_TEAM_GAP_WEIGHT: float = 0.25
+
+# Availability risk blend (sum to 1.0) — GP rate, low-minutes flag, signal.
+AVAILABILITY_RISK_GP_WEIGHT: float = 0.35
+AVAILABILITY_RISK_LOW_MIN_WEIGHT: float = 0.35
+AVAILABILITY_RISK_SIGNAL_WEIGHT: float = 0.30
+
+# Submetrics that fall back to neutral when Option B/C artifacts are missing.
+DEGRADABLE_SUBMETRICS: tuple[str, ...] = ("team_need_fit", "lineup_impact_fit")

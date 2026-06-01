@@ -108,6 +108,12 @@ def load_possessions_table(
     return pd.concat(parts, ignore_index=True)
 
 
+def has_possessions_partition(season: str) -> bool:
+    """True when interim possessions hive partition exists with at least one parquet file."""
+    base = _season_partition_dir(season)
+    return base.exists() and any(base.rglob(_INTERIM_PARQUET_NAME))
+
+
 def possessions_per_game_counts(df: pd.DataFrame) -> pd.Series:
     """Count possession rows per ``game_id`` (for visual validation)."""
     if df.empty or "game_id" not in df.columns:

@@ -23,6 +23,13 @@ from nba_fit.data.fetchers.pbp import (
     league_game_ids,
     playbyplay_frame,
 )
+from nba_fit.data.fetchers.tactical import (
+    fetch_option_d_tactical,
+    fetch_tactical,
+    primary_dataset_name as tactical_primary_dataset_name,
+    primary_frame as tactical_primary_frame,
+    tactical_kwargs,
+)
 from nba_fit.data.fetchers.transactions import (
     MovementEvent,
     ensure_stub_template,
@@ -50,6 +57,11 @@ __all__ = [
     "fetch_gamerotation_batch",
     "fetch_option_c_impact",
     "playbyplay_frame",
+    "fetch_option_d_tactical",
+    "fetch_tactical",
+    "tactical_kwargs",
+    "tactical_primary_dataset_name",
+    "tactical_primary_frame",
     "MovementEvent",
     "ensure_stub_template",
     "fetch_movements_from_gamelogs",

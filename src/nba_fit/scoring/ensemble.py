@@ -9,6 +9,9 @@ import numpy as np
 from nba_fit.features.player_vector import FEATURE_GROUP_AVAILABILITY
 from nba_fit.features.vectors import PlayerVector
 from nba_fit.scoring.constants import (
+    AVAILABILITY_RISK_GP_WEIGHT,
+    AVAILABILITY_RISK_LOW_MIN_WEIGHT,
+    AVAILABILITY_RISK_SIGNAL_WEIGHT,
     ENSEMBLE_COMPONENT_NAMES,
     ENSEMBLE_COMPONENT_WEIGHTS,
     ENSEMBLE_DERIVED_NAMES,
@@ -46,7 +49,11 @@ def availability_risk_penalty(player: PlayerVector | None) -> float:
     low_min = float(avail[3]) if len(avail) > 3 else 0.0
     signal = float(avail[4]) if len(avail) > 4 else 0.0
     # Low GP rate and low_minutes_flag increase risk; availability_signal decreases it.
-    risk = 0.35 * _sigmoid01(-gp_rate) + 0.35 * low_min + 0.30 * (1.0 - signal)
+    risk = (
+        AVAILABILITY_RISK_GP_WEIGHT * _sigmoid01(-gp_rate)
+        + AVAILABILITY_RISK_LOW_MIN_WEIGHT * low_min
+        + AVAILABILITY_RISK_SIGNAL_WEIGHT * (1.0 - signal)
+    )
     return float(np.clip(risk, 0.0, 1.0))
 
 

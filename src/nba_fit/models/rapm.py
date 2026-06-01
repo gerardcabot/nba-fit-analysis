@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
-from dataclasses import dataclass
+import warnings
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +22,10 @@ from nba_fit.features.constants import COL_PLAYER_ID
 from nba_fit.models.constants import MODEL_RANDOM_STATE, RAPM_RIDGE_ALPHA
 
 _GROUP_ID_SPLIT = re.compile(r"[-,\s|]+")
+_LEAGUE_AVG_OFF_RATING: float = 110.0
+_LEAGUE_AVG_DEF_RATING: float = 110.0
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +41,9 @@ class RapmArtifacts:
     low_sample_flag: np.ndarray
     ridge_alpha: float
     recency_half_life_games: float
+    degenerate: bool = False
+    rapm_source: str = "lineup_units"
+    metadata: dict[str, object] = field(default_factory=dict)
 
     def impact_for(self, player_id: int) -> tuple[float, float, float] | None:
         hits = np.where(self.player_ids == player_id)[0]
@@ -231,6 +240,202 @@ def stints_from_lineup_units(lineups: pd.DataFrame) -> pd.DataFrame:
     return stints
 
 
+def _possession_points(row: pd.Series) -> tuple[float, float]:
+    """Return (offense_pts, defense_pts) for one possession row when derivable."""
+    if "points_scored" in row.index and pd.notna(row.get("points_scored")):
+        off_pts = float(row["points_scored"])
+        if "opponent_points_scored" in row.index and pd.notna(row.get("opponent_points_scored")):
+            def_pts = float(row["opponent_points_scored"])
+        else:
+            def_pts = 0.0
+        return off_pts, def_pts
+
+    if "off_pts" in row.index and pd.notna(row.get("off_pts")):
+        off_pts = float(row["off_pts"])
+        def_pts = float(row.get("def_pts", 0.0) or 0.0)
+        return off_pts, def_pts
+
+    return 0.0, 0.0
+
+
+def stints_from_possessions(possessions: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build stint rows from interim ``possessions`` parquet.
+
+    Groups by ``lineup_id`` + ``offense_team_id`` (or ``team_id``). Uses
+    ``points_scored`` / ``opponent_points_scored`` when present; otherwise
+    league-average per-100 targets with possession-count weights.
+    """
+    if possessions.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_ids",
+                "team_id",
+                "net_rating",
+                "off_rating",
+                "def_rating",
+                "minutes",
+                "stint_weight",
+            ]
+        )
+
+    df = possessions.copy()
+    lineup_col = "lineup_id" if "lineup_id" in df.columns else "GROUP_ID"
+    team_col = "offense_team_id" if "offense_team_id" in df.columns else "team_id"
+    if team_col not in df.columns:
+        team_col = "TEAM_ID"
+
+    df = df[df[lineup_col].notna()].copy()
+    if df.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_ids",
+                "team_id",
+                "net_rating",
+                "off_rating",
+                "def_rating",
+                "minutes",
+                "stint_weight",
+            ]
+        )
+
+    has_scoring = any(c in df.columns for c in ("points_scored", "off_pts"))
+    rows: list[dict[str, object]] = []
+
+    group_cols = [lineup_col]
+    if team_col in df.columns:
+        group_cols.append(team_col)
+
+    for key, group in df.groupby(group_cols, sort=False):
+        if isinstance(key, tuple):
+            lineup_id, team_raw = key
+        else:
+            lineup_id, team_raw = key, group[team_col].iloc[0] if team_col in group.columns else 0
+
+        players = parse_lineup_player_ids(lineup_id)
+        if len(players) < 2:
+            continue
+
+        n_poss = len(group)
+        if n_poss <= 0:
+            continue
+
+        off_pts_total = 0.0
+        def_pts_total = 0.0
+        for _, prow in group.iterrows():
+            off_pts, def_pts = _possession_points(prow)
+            off_pts_total += off_pts
+            def_pts_total += def_pts
+
+        if has_scoring and (off_pts_total > 0 or def_pts_total > 0):
+            off_rating = 100.0 * off_pts_total / n_poss
+            def_rating = 100.0 * def_pts_total / n_poss
+        else:
+            off_rating = _LEAGUE_AVG_OFF_RATING
+            def_rating = _LEAGUE_AVG_DEF_RATING
+
+        team_id = int(team_raw) if pd.notna(team_raw) else 0
+        rows.append(
+            {
+                "player_ids": players,
+                "team_id": team_id,
+                "net_rating": off_rating - def_rating,
+                "off_rating": off_rating,
+                "def_rating": def_rating,
+                "minutes": float(n_poss),
+                "stint_weight": float(n_poss),
+            }
+        )
+
+    stints = pd.DataFrame(rows)
+    if stints.empty:
+        return stints
+
+    for col in ("net_rating", "off_rating", "def_rating"):
+        if stints[col].isna().all():
+            stints[col] = stints[col].fillna(0.0)
+
+    return stints
+
+
+def check_degenerate_rapm(artifacts: RapmArtifacts) -> RapmArtifacts:
+    """
+    Flag and warn when all ``net_rapm`` coefficients are identical (std == 0).
+
+    Updates ``degenerate`` and ``metadata['net_rapm_std']`` on *artifacts*.
+    """
+    net_std = float(np.std(artifacts.net_rapm)) if len(artifacts.net_rapm) else 0.0
+    degenerate = net_std == 0.0 and len(artifacts.net_rapm) > 0
+    meta = dict(artifacts.metadata)
+    meta["net_rapm_std"] = net_std
+    meta["degenerate_rapm"] = degenerate
+    if degenerate:
+        warnings.warn(
+            f"Degenerate RAPM for season {artifacts.season}: net_rapm std == 0 "
+            f"(source={artifacts.rapm_source}, n_players={len(artifacts.player_ids)})",
+            stacklevel=2,
+        )
+        logger.warning(
+            "Degenerate RAPM season=%s source=%s n=%d",
+            artifacts.season,
+            artifacts.rapm_source,
+            len(artifacts.player_ids),
+        )
+    return RapmArtifacts(
+        season=artifacts.season,
+        player_ids=artifacts.player_ids,
+        orapm=artifacts.orapm,
+        drapm=artifacts.drapm,
+        net_rapm=artifacts.net_rapm,
+        stint_possessions=artifacts.stint_possessions,
+        low_sample_flag=artifacts.low_sample_flag,
+        ridge_alpha=artifacts.ridge_alpha,
+        recency_half_life_games=artifacts.recency_half_life_games,
+        degenerate=degenerate,
+        rapm_source=artifacts.rapm_source,
+        metadata=meta,
+    )
+
+
+def fit_rapm_from_possessions(
+    possessions: pd.DataFrame,
+    *,
+    season: str,
+    alpha: float = RAPM_RIDGE_ALPHA,
+    half_life_games: float | None = None,
+) -> RapmArtifacts:
+    """Convenience: ``stints_from_possessions`` then ridge off/def split."""
+    stints = stints_from_possessions(possessions)
+    if stints.empty:
+        raise ValueError("No valid possession stints with parseable lineup_id player lists")
+
+    stint_players = [list(map(int, s)) for s in stints["player_ids"]]
+    recency = recency_weights(len(stint_players), half_life_games)
+    artifacts = fit_rapm_from_stints(
+        stint_players,
+        stints["off_rating"].to_numpy(dtype=float),
+        stints["def_rating"].to_numpy(dtype=float),
+        season=season,
+        stint_weights=stints["stint_weight"].to_numpy(dtype=float),
+        alpha=alpha,
+        recency_weight_arr=recency,
+        half_life_games=half_life_games,
+    )
+    artifacts = RapmArtifacts(
+        season=artifacts.season,
+        player_ids=artifacts.player_ids,
+        orapm=artifacts.orapm,
+        drapm=artifacts.drapm,
+        net_rapm=artifacts.net_rapm,
+        stint_possessions=artifacts.stint_possessions,
+        low_sample_flag=artifacts.low_sample_flag,
+        ridge_alpha=artifacts.ridge_alpha,
+        recency_half_life_games=artifacts.recency_half_life_games,
+        rapm_source="possessions",
+    )
+    return check_degenerate_rapm(artifacts)
+
+
 def fit_rapm_from_lineup_table(
     lineups: pd.DataFrame,
     *,
@@ -245,7 +450,7 @@ def fit_rapm_from_lineup_table(
 
     stint_players = [list(map(int, s)) for s in stints["player_ids"]]
     recency = recency_weights(len(stint_players), half_life_games)
-    return fit_rapm_from_stints(
+    artifacts = fit_rapm_from_stints(
         stint_players,
         stints["off_rating"].to_numpy(dtype=float),
         stints["def_rating"].to_numpy(dtype=float),
@@ -255,6 +460,19 @@ def fit_rapm_from_lineup_table(
         recency_weight_arr=recency,
         half_life_games=half_life_games,
     )
+    artifacts = RapmArtifacts(
+        season=artifacts.season,
+        player_ids=artifacts.player_ids,
+        orapm=artifacts.orapm,
+        drapm=artifacts.drapm,
+        net_rapm=artifacts.net_rapm,
+        stint_possessions=artifacts.stint_possessions,
+        low_sample_flag=artifacts.low_sample_flag,
+        ridge_alpha=artifacts.ridge_alpha,
+        recency_half_life_games=artifacts.recency_half_life_games,
+        rapm_source="lineup_units",
+    )
+    return check_degenerate_rapm(artifacts)
 
 
 def synthetic_stint_matrix(
@@ -307,6 +525,10 @@ def save_rapm(artifacts: RapmArtifacts, path: Path | None = None) -> Path:
         "ridge_alpha": artifacts.ridge_alpha,
         "recency_half_life_games": artifacts.recency_half_life_games,
         "n_players": int(len(artifacts.player_ids)),
+        "rapm_source": artifacts.rapm_source,
+        "degenerate_rapm": artifacts.degenerate,
+        "net_rapm_std": float(artifacts.metadata.get("net_rapm_std", np.std(artifacts.net_rapm))),
+        **{k: v for k, v in artifacts.metadata.items() if k not in ("net_rapm_std", "degenerate_rapm")},
     }
     (out_dir / "metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return out_dir
@@ -326,4 +548,10 @@ def load_rapm(season: str, *, root: Path | None = None) -> RapmArtifacts:
         low_sample_flag=table["low_sample_flag"].to_numpy(dtype=bool),
         ridge_alpha=float(meta["ridge_alpha"]),
         recency_half_life_games=float(meta["recency_half_life_games"]),
+        degenerate=bool(meta.get("degenerate_rapm", False)),
+        rapm_source=str(meta.get("rapm_source", "lineup_units")),
+        metadata={
+            "net_rapm_std": float(meta.get("net_rapm_std", 0.0)),
+            "degenerate_rapm": bool(meta.get("degenerate_rapm", False)),
+        },
     )

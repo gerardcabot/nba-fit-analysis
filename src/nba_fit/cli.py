@@ -11,6 +11,7 @@ from nba_fit.config.settings import (
     INGEST_TIER_IMPACT,
     INGEST_TIER_MVP,
     INGEST_TIER_ROLE,
+    INGEST_TIER_TACTICAL,
     get_settings,
 )
 from nba_fit.data.client import NBAClient
@@ -21,6 +22,7 @@ from nba_fit.features.season_context import (
     DEMO_TEAM_ID,
     SeasonFitContext,
 )
+from nba_fit.features.store import materialize_features
 from nba_fit.models.impact_context import train_impact_for_season
 from nba_fit.models.role_context import train_roles_for_season
 from nba_fit.scoring.archetype_board import archetype_board_for_team
@@ -29,6 +31,8 @@ from nba_fit.scoring.lineup_sim import run_lineup_sim
 from nba_fit.data.fetchers.transactions import synthetic_movements
 from nba_fit.evaluation.holdout_season import run_holdout_season_smoke
 from nba_fit.evaluation.movement_backtest import run_movement_backtest
+from nba_fit.models.weight_learning import learn_ensemble_weights
+from nba_fit.scoring.constants import ENSEMBLE_COMPONENT_NAMES
 from nba_fit.scoring.ranker import FitRanker
 
 
@@ -68,9 +72,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     settings = get_settings()
     season = args.season or settings.default_season
     max_games = getattr(args, "max_games", None)
+    full_season = getattr(args, "full_season", False)
     cap_msg = ""
-    if args.tier == INGEST_TIER_IMPACT and max_games is not None:
-        cap_msg = f" max_games={max_games}"
+    if args.tier == INGEST_TIER_IMPACT:
+        if full_season or max_games == 0:
+            cap_msg = " max_games=unlimited"
+        elif max_games is not None:
+            cap_msg = f" max_games={max_games}"
     print(
         f"Ingest tier={args.tier} season={season}{cap_msg} "
         f"(cache={'on' if not args.no_cache else 'off'})..."
@@ -81,6 +89,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             tier=args.tier,
             use_cache=not args.no_cache,
             max_games=max_games,
+            full_season=full_season,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"Ingest failed: {exc}", file=sys.stderr)
@@ -90,6 +99,10 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         print(f"  players: {result.player_rows} rows -> {result.players_path}")
     if result.teams_path:
         print(f"  teams:   {result.team_rows} rows -> {result.teams_path}")
+    if result.features_materialized:
+        print(f"  player_features_scaled -> {result.player_features_path}")
+        print(f"  team_features_scaled   -> {result.team_features_path}")
+        print(f"  scaling_params         -> {result.scaling_params_path}")
     if result.lineup_units_path:
         print(f"  lineup_units: {result.lineup_units_rows} rows -> {result.lineup_units_path}")
     if result.onoff_path:
@@ -105,6 +118,24 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         rows = sum(len(df) for df in fetch.frames.values())
         cache_flag = "cache" if fetch.from_cache else "live"
         print(f"    {endpoint}: {rows} rows ({cache_flag})")
+    return 0
+
+
+def _cmd_materialize_features(args: argparse.Namespace) -> int:
+    season = args.season or get_settings().default_season
+    print(f"Materializing feature store season={season}...")
+    try:
+        result = materialize_features(season)
+    except FileNotFoundError as exc:
+        print(f"materialize-features failed: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001
+        print(f"materialize-features failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"  player_features_scaled: {result.player_rows} rows -> {result.player_path}")
+    print(f"  team_features_scaled:   {result.team_rows} rows -> {result.team_path}")
+    print(f"  scaling_params:         {result.scaling_rows} rows -> {result.scaling_path}")
     return 0
 
 
@@ -203,6 +234,15 @@ def _cmd_train_impact(args: argparse.Namespace) -> int:
     lineup_out = lineup_model_dir(impact_ctx.season)
     low_n = int(impact_ctx.rapm.low_sample_flag.sum())
     print(f"  rapm players: {len(impact_ctx.rapm.player_ids)} ({low_n} low-sample flags)")
+    print(f"  rapm source: {impact_ctx.rapm_source}")
+    if impact_ctx.degenerate_rapm:
+        print(
+            "  WARNING: degenerate RAPM (net_rapm std == 0) — "
+            "impact submetrics may be uninformative",
+            file=sys.stderr,
+        )
+    net_std = impact_ctx.metadata.get("net_rapm_std", float(impact_ctx.rapm.net_rapm.std()))
+    print(f"  net rapm std: {net_std:.4f}")
     print(
         f"  net rapm range: {impact_ctx.rapm.net_rapm.min():.2f} "
         f".. {impact_ctx.rapm.net_rapm.max():.2f}"
@@ -210,6 +250,42 @@ def _cmd_train_impact(args: argparse.Namespace) -> int:
     print(f"  lineup model penalty: {impact_ctx.lineup_model.penalty}")
     print(f"  saved rapm: {rapm_out}")
     print(f"  saved lineup_model: {lineup_out}")
+    return 0
+
+
+def _cmd_fit_weights(args: argparse.Namespace) -> int:
+    """Stub: learn ensemble weights from synthetic or movement backtest labels."""
+    season = args.season or get_settings().default_season
+    print(f"Learning ensemble weights season={season}...")
+    try:
+        context = SeasonFitContext.from_synthetic(season, n_players=30)
+        movements = synthetic_movements(season, n_moves=15)
+        result = run_movement_backtest(context, movements, calibrate=False)
+        rows = result.rows
+        if rows.empty:
+            print("No movement rows to fit weights.", file=sys.stderr)
+            return 1
+
+        comp_cols = [f"ensemble_{name}" for name in ENSEMBLE_COMPONENT_NAMES]
+        missing = [c for c in comp_cols if c not in rows.columns]
+        if missing:
+            print(f"Missing ensemble columns: {missing}", file=sys.stderr)
+            return 1
+
+        X = rows[comp_cols].to_numpy(dtype=float)
+        y = rows["post_move_outcome"].to_numpy(dtype=float)
+        l2 = args.l2
+        fit = learn_ensemble_weights(X, y, l2=l2) if l2 is not None else learn_ensemble_weights(X, y)
+    except Exception as exc:  # noqa: BLE001
+        print(f"fit-weights failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"  n_samples: {fit.n_samples}")
+    print(f"  train_mse: {fit.train_mse:.4f}")
+    print(f"  l2: {fit.l2}")
+    for name, w in fit.weights.items():
+        prior = fit.prior_weights.get(name, 0.0)
+        print(f"  {name:22} learned={w:.3f}  prior={prior:.3f}")
     return 0
 
 
@@ -337,10 +413,18 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument(
         "--tier",
         default=INGEST_TIER_MVP,
-        choices=[INGEST_TIER_MVP, INGEST_TIER_ROLE, INGEST_TIER_IMPACT],
+        choices=[INGEST_TIER_MVP, INGEST_TIER_ROLE, INGEST_TIER_IMPACT, INGEST_TIER_TACTICAL],
         help=(
             "Ingest bundle (mvp = Option A; role = Option B lineups/on-off; "
-            "impact = Option C possessions)"
+            "impact = Option C possessions; tactical = Option D hustle/defend/gravity)"
+        ),
+    )
+    ingest.add_argument(
+        "--full-season",
+        action="store_true",
+        help=(
+            f"Fetch all regular-season games for --tier {INGEST_TIER_IMPACT} "
+            "(no dev cap; overrides --max-games)"
         ),
     )
     ingest.add_argument(
@@ -350,11 +434,23 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help=(
             f"Cap per-game PBP pulls for --tier {INGEST_TIER_IMPACT} "
-            f"(default {INGEST_IMPACT_MAX_GAMES_DEV}; see settings for rationale)"
+            f"(default {INGEST_IMPACT_MAX_GAMES_DEV}; 0 = unlimited; "
+            "see --full-season)"
         ),
     )
     ingest.add_argument("--no-cache", action="store_true", help="Bypass Parquet cache")
     ingest.set_defaults(func=_cmd_ingest)
+
+    materialize = sub.add_parser(
+        "materialize-features",
+        help="Build scaled feature matrices from interim player/team tables",
+    )
+    materialize.add_argument(
+        "--season",
+        default=get_settings().default_season,
+        help="NBA season string (default from config)",
+    )
+    materialize.set_defaults(func=_cmd_materialize_features)
 
     rank_p = sub.add_parser(
         "rank-player",
@@ -426,6 +522,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train_impact.set_defaults(func=_cmd_train_impact)
 
+    fit_weights = sub.add_parser(
+        "fit-weights",
+        help="Learn ensemble weights from labeled movement rows (stub)",
+    )
+    fit_weights.add_argument("--season", default=get_settings().default_season)
+    fit_weights.add_argument(
+        "--l2",
+        type=float,
+        default=None,
+        help="L2 prior penalty (default from models.constants)",
+    )
+    fit_weights.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Use synthetic movement backtest rows",
+    )
+    fit_weights.set_defaults(func=_cmd_fit_weights)
+
     archetype = sub.add_parser(
         "archetype-board",
         help="Rank players by team need × role fit for a team",
@@ -493,8 +607,8 @@ def build_parser() -> argparse.ArgumentParser:
     backtest.add_argument(
         "--synthetic",
         action="store_true",
-        default=True,
-        help="Use synthetic vectors (default: on for offline smoke)",
+        default=None,
+        help="Use synthetic vectors (default: off when movement cache exists)",
     )
     backtest.add_argument(
         "--no-synthetic",
@@ -513,20 +627,63 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _default_backtest_synthetic(season: str) -> bool:
+    """Prefer real interim data when movement labels exist on disk."""
+    if movements_cache_path(season).exists():
+        return False
+    manual = load_manual_movements()
+    if not manual.empty:
+        return False
+    return True
+
+
 def _cmd_backtest_movement(args: argparse.Namespace) -> int:
     season = args.season or get_settings().default_season
-    print(f"Movement backtest — season={season} synthetic={args.synthetic}...")
+    use_synthetic = (
+        args.synthetic
+        if args.synthetic is not None
+        else _default_backtest_synthetic(season)
+    )
+    print(f"Movement backtest — season={season} synthetic={use_synthetic}...")
+    role_context: RoleFitContext | None = None
+    impact_context: ImpactFitContext | None = None
     try:
-        if args.synthetic:
+        if use_synthetic:
             context = SeasonFitContext.from_synthetic(season, n_players=40)
             movements = synthetic_movements(season, n_moves=args.moves)
+            role_context = RoleFitContext.from_synthetic(context)
+            impact_context = ImpactFitContext.from_synthetic(role_context)
         else:
             context = SeasonFitContext.build(
                 season, prefer_interim=True, prefer_api=False
             )
             movements = None
-        result = run_movement_backtest(context, movements)
-        holdout = run_holdout_season_smoke(season, synthetic=args.synthetic)
+            try:
+                role_context = RoleFitContext.from_season(
+                    season,
+                    prefer_interim=True,
+                    prefer_api=False,
+                    synthetic=False,
+                    persist=False,
+                )
+            except (FileNotFoundError, ValueError):
+                role_context = None
+            try:
+                impact_context = ImpactFitContext.from_season(
+                    season,
+                    prefer_interim=True,
+                    synthetic=False,
+                    persist=False,
+                )
+            except (FileNotFoundError, ValueError):
+                impact_context = None
+        result = run_movement_backtest(
+            context,
+            movements,
+            role_context=role_context,
+            impact_context=impact_context,
+        )
+        holdout = run_holdout_season_smoke(season, synthetic=use_synthetic)
     except Exception as exc:  # noqa: BLE001
         print(f"backtest-movement failed: {exc}", file=sys.stderr)
         return 1

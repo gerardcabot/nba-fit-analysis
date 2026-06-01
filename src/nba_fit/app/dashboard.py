@@ -66,6 +66,7 @@ def _load_ranker(season: str, synthetic: bool) -> FitRanker:
         season,
         prefer_interim=not synthetic,
         prefer_api=not synthetic,
+        synthetic=synthetic,
     )
 
 
@@ -166,10 +167,22 @@ def _view_fit_card(season: str, synthetic: bool) -> None:
     overall = card.get("overall_fit_percentile")
     if overall is not None:
         st.metric("Overall fit percentile", f"{overall:.1f}")
+    unc = card.get("fit_uncertainty") or {}
+    if unc.get("low_percentile") is not None and unc.get("high_percentile") is not None:
+        st.caption(
+            f"Uncertainty band: {unc['low_percentile']:.1f} – {unc['high_percentile']:.1f}"
+        )
     if card.get("projected_net_rating_delta") is not None:
         st.metric(
             "Projected net rating Δ (pts/100 poss)",
             f"{card['projected_net_rating_delta']:+.2f}",
+        )
+
+    degraded = card.get("components_degraded") or card.get("fallbacks") or []
+    if degraded:
+        st.warning(
+            "Neutral fallback used for: "
+            + ", ".join(str(d) for d in degraded)
         )
 
     submetrics = card.get("submetrics") or {}
@@ -185,8 +198,10 @@ def _view_fit_card(season: str, synthetic: bool) -> None:
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Archetype", card.get("archetype") or "—")
-    role_fit = card.get("role_fit")
-    c2.metric("Role fit", f"{role_fit:.3f}" if role_fit is not None else "—")
+    team_need = card.get("team_need_fit")
+    if team_need is None:
+        team_need = card.get("role_fit")
+    c2.metric("Team need fit", f"{team_need:.3f}" if team_need is not None else "—")
     c3.metric("Data source", card.get("data_source", "—"))
 
     comps = card.get("comps") or []
@@ -198,6 +213,13 @@ def _view_fit_card(season: str, synthetic: bool) -> None:
     lineup = card.get("lineup_synergy")
     if lineup and lineup.get("top_lineups"):
         st.subheader("Lineup synergy")
+        headline = lineup.get("headline") or {}
+        delta = headline.get("projected_net_rating_delta") or lineup.get(
+            "projected_net_rating_delta"
+        )
+        if delta is not None:
+            units = headline.get("units", "pts/100 poss")
+            st.metric("Lineup projected net rating Δ", f"{delta:+.2f}", units)
         rows = []
         for u in lineup["top_lineups"]:
             rows.append(

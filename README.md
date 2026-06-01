@@ -205,12 +205,13 @@ A fit card is JSON-friendly metadata for one player on one team. Typical fields:
 | `overall_fit_percentile` | Calibrated percentile vs all player–team pairs that season |
 | `raw_fit_score` | Pre-calibration weighted ensemble |
 | `offensive_fit`, `defensive_fit`, … | Interpretable submetrics in \([0, 1]\) |
-| `role_fit` | Team-need × embedding alignment (Option B) |
+| `team_need_fit` | Team-need × embedding alignment (Option B); alias `role_fit` |
 | `projected_net_rating_delta` | Minutes-weighted lineup impact proxy (Option C) |
 | `archetype` | Heuristic cluster label (e.g. movement shooter) |
 | `comps` | Nearest neighbors in role-embedding space |
 | `lineup_synergy` | Top projected five-man units and deltas |
-| `fit_uncertainty_low` / `fit_uncertainty_high` | Bootstrap + sample-size band (Option D) |
+| `fit_uncertainty.low_percentile` / `fit_uncertainty.high_percentile` | Ensemble disagreement band (Option D) |
+| `components_degraded` / `fallbacks` | Submetrics that used neutral 0.5 (missing Option B/C artifacts) |
 | `ensemble` / `ensemble_contributions` | Decomposed calibrated ensemble |
 
 Weights and thresholds are defined in `src/nba_fit/scoring/constants.py`, `features/constants.py`, and `models/constants.py` with inline basketball rationale—no undocumented magic numbers in scoring logic.

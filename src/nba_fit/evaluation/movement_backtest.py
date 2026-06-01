@@ -11,6 +11,18 @@ import pandas as pd
 from nba_fit.data.fetchers.transactions import MOVEMENT_COLUMNS, get_movements
 from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.calibration import FitCalibrator, calibrate_fit_table
+from nba_fit.models.constants import (
+    POST_MOVE_METRIC_WEIGHTS,
+    POST_MOVE_MINUTES_BASE,
+    POST_MOVE_MINUTES_CAP,
+    POST_MOVE_MINUTES_FIT_SCALE,
+    POST_MOVE_MINUTES_NORM_DIVISOR,
+    POST_MOVE_OUTCOME_METRIC_SIGMOID,
+    POST_MOVE_OUTCOME_METRIC_WEIGHT,
+    POST_MOVE_OUTCOME_MINUTES_WEIGHT,
+    POST_MOVE_SYNTHETIC_RATE_MEANS,
+    POST_MOVE_SYNTHETIC_RATE_STD,
+)
 from nba_fit.scoring.constants import ENSEMBLE_DERIVED_NAMES, SUBMETRIC_NAMES
 from nba_fit.scoring.ensemble import extract_ensemble_components, raw_ensemble_score
 from nba_fit.scoring.fit_index import build_fit_index_table
@@ -18,7 +30,24 @@ from nba_fit.scoring.submetrics import compute_all_submetrics
 from nba_fit.scoring.uncertainty import uncertainty_from_submetrics
 
 # Proxy rate stats for estimated post-move metric delta (per-36)
-_EST_RATE_COLS: tuple[str, ...] = ("pts", "usg", "ts", "ast")
+_EST_RATE_COLS: tuple[str, ...] = tuple(POST_MOVE_METRIC_WEIGHTS.keys())
+
+# Game-log column aliases for observed post-move labeling
+_GAMELOG_PLAYER_COLS: tuple[str, ...] = ("PLAYER_ID", "player_id")
+_GAMELOG_TEAM_COLS: tuple[str, ...] = ("TEAM_ID", "team_id")
+_GAMELOG_DATE_COLS: tuple[str, ...] = ("GAME_DATE", "game_date", "GAME_DATE_EST")
+_GAMELOG_MIN_COLS: tuple[str, ...] = ("MIN", "min", "minutes")
+_GAMELOG_PTS_COLS: tuple[str, ...] = ("PTS", "pts", "points")
+_GAMELOG_USG_COLS: tuple[str, ...] = ("USG_PCT", "usg", "usage")
+_GAMELOG_TS_COLS: tuple[str, ...] = ("TS_PCT", "ts", "true_shooting")
+_GAMELOG_AST_COLS: tuple[str, ...] = ("AST", "ast", "assists")
+
+
+def _first_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
 
 
 @dataclass
@@ -80,9 +109,8 @@ def _estimate_metric_delta(pre_player: Any, post_rates: dict[str, float]) -> flo
     Uses scaled feature dict on ``PlayerVector`` when present; else neutral 0.
     """
     pre = getattr(pre_player, "features", {}) or {}
-    weights = {"pts": 0.35, "usg": 0.25, "ts": 0.25, "ast": 0.15}
     delta = 0.0
-    for key, w in weights.items():
+    for key, w in POST_MOVE_METRIC_WEIGHTS.items():
         pre_val = float(pre.get(key, pre.get(key.upper(), 0.5)))
         post_val = post_rates.get(key, pre_val)
         delta += w * (post_val - pre_val)
@@ -94,10 +122,15 @@ def _synthetic_post_rates(move: pd.Series, rng: np.random.Generator) -> dict[str
     seed = int(move["player_id"]) + int(move["to_team_id"])
     rng = np.random.default_rng(seed)
     return {
-        "pts": float(np.clip(0.45 + rng.normal(0, 0.08), 0, 1)),
-        "usg": float(np.clip(0.40 + rng.normal(0, 0.07), 0, 1)),
-        "ts": float(np.clip(0.52 + rng.normal(0, 0.06), 0, 1)),
-        "ast": float(np.clip(0.35 + rng.normal(0, 0.07), 0, 1)),
+        key: float(
+            np.clip(
+                POST_MOVE_SYNTHETIC_RATE_MEANS.get(key, 0.5)
+                + rng.normal(0, POST_MOVE_SYNTHETIC_RATE_STD),
+                0,
+                1,
+            )
+        )
+        for key in POST_MOVE_METRIC_WEIGHTS
     }
 
 
@@ -208,7 +241,7 @@ def label_post_move_outcomes(
     metric_deltas: list[float] = []
     outcomes: list[float] = []
 
-    move_lookup = movements.set_index(["player_id", "to_team_id"], drop=False)
+    move_lookup = movements.set_index(["player_id", "to_team_id"], drop=False).sort_index()
 
     for _, row in out.iterrows():
         key = (int(row["player_id"]), int(row["to_team_id"]))
@@ -219,14 +252,18 @@ def label_post_move_outcomes(
         player = context.players.get(int(row["player_id"]))
         pre_min = float(row["pre_move_minutes"])
         fit_signal = float(row["raw_fit_score"])
-        minutes = pre_min * (0.85 + 0.3 * fit_signal) * post_minutes_scale
-        minutes = float(np.clip(minutes, 0.0, 3500.0))
+        minutes = pre_min * (POST_MOVE_MINUTES_BASE + POST_MOVE_MINUTES_FIT_SCALE * fit_signal) * post_minutes_scale
+        minutes = float(np.clip(minutes, 0.0, POST_MOVE_MINUTES_CAP))
 
         post_rates = _synthetic_post_rates(move if move is not None else row, rng)
         delta = _estimate_metric_delta(player, post_rates) if player else 0.0
 
-        minutes_norm = np.clip(minutes / 2000.0, 0.0, 1.0)
-        outcome = 0.6 * minutes_norm + 0.4 * (1.0 / (1.0 + np.exp(-5.0 * delta)))
+        minutes_norm = np.clip(minutes / POST_MOVE_MINUTES_NORM_DIVISOR, 0.0, 1.0)
+        outcome = (
+            POST_MOVE_OUTCOME_MINUTES_WEIGHT * minutes_norm
+            + POST_MOVE_OUTCOME_METRIC_WEIGHT
+            * (1.0 / (1.0 + np.exp(-POST_MOVE_OUTCOME_METRIC_SIGMOID * delta)))
+        )
 
         post_minutes.append(minutes)
         metric_deltas.append(delta)
@@ -235,6 +272,186 @@ def label_post_move_outcomes(
     out["post_move_minutes"] = post_minutes
     out["estimated_metric_delta"] = metric_deltas
     out["post_move_outcome"] = outcomes
+    return out
+
+
+def _parse_minutes_value(value: object) -> float:
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text:
+        return 0.0
+    if ":" in text:
+        parts = text.split(":")
+        if len(parts) == 2:
+            return float(parts[0]) + float(parts[1]) / 60.0
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def _observed_rates_from_gamelogs(
+    logs: pd.DataFrame,
+    *,
+    player_id: int,
+    team_id: int,
+    after_date: pd.Timestamp | None,
+) -> tuple[float, dict[str, float]]:
+    """
+    Aggregate post-move minutes and rate proxies from game logs when columns exist.
+
+    Returns ``(total_minutes, rate_dict)`` with keys in ``POST_MOVE_METRIC_WEIGHTS``.
+    Partial columns are tolerated; missing rates fall back to league-neutral 0.5.
+    """
+    pid_col = _first_col(logs, _GAMELOG_PLAYER_COLS)
+    team_col = _first_col(logs, _GAMELOG_TEAM_COLS)
+    date_col = _first_col(logs, _GAMELOG_DATE_COLS)
+    min_col = _first_col(logs, _GAMELOG_MIN_COLS)
+
+    if pid_col is None or team_col is None:
+        return 0.0, {}
+
+    subset = logs[(logs[pid_col] == player_id) & (logs[team_col] == team_id)].copy()
+    if subset.empty:
+        return 0.0, {}
+
+    if date_col is not None and after_date is not None:
+        subset[date_col] = pd.to_datetime(subset[date_col], errors="coerce")
+        subset = subset[subset[date_col] >= after_date]
+
+    if subset.empty:
+        return 0.0, {}
+
+    total_min = 0.0
+    if min_col is not None:
+        total_min = float(subset[min_col].map(_parse_minutes_value).sum())
+    elif "minutes" in subset.columns:
+        total_min = float(subset["minutes"].sum())
+
+    rates: dict[str, float] = {}
+    col_map = {
+        "pts": _first_col(logs, _GAMELOG_PTS_COLS),
+        "usg": _first_col(logs, _GAMELOG_USG_COLS),
+        "ts": _first_col(logs, _GAMELOG_TS_COLS),
+        "ast": _first_col(logs, _GAMELOG_AST_COLS),
+    }
+
+    for key, col in col_map.items():
+        if col is None or col not in subset.columns:
+            continue
+        vals = pd.to_numeric(subset[col], errors="coerce").dropna()
+        if vals.empty:
+            continue
+        if key in ("usg", "ts"):
+            rates[key] = float(np.clip(vals.mean(), 0.0, 1.0))
+        elif key == "pts" and total_min > 0:
+            rates[key] = float(np.clip(vals.sum() / (total_min / 36.0) / 40.0, 0.0, 1.0))
+        elif key == "ast" and total_min > 0:
+            rates[key] = float(np.clip(vals.sum() / (total_min / 36.0) / 15.0, 0.0, 1.0))
+        else:
+            rates[key] = float(np.clip(vals.mean() / 40.0, 0.0, 1.0))
+
+    return total_min, rates
+
+
+def label_post_move_from_observed(
+    frozen: pd.DataFrame,
+    movements: pd.DataFrame,
+    context: SeasonFitContext,
+    game_logs: pd.DataFrame,
+    *,
+    fallback_to_synthetic: bool = True,
+    post_minutes_scale: float = 1.0,
+    rng: np.random.Generator | None = None,
+) -> pd.DataFrame:
+    """
+    Label post-move outcomes from observed game logs when columns are available.
+
+    Falls back to :func:`label_post_move_outcomes` for rows without sufficient
+    log coverage when *fallback_to_synthetic* is True.
+    """
+    if frozen.empty:
+        return frozen
+
+    if game_logs.empty:
+        if fallback_to_synthetic:
+            return label_post_move_outcomes(
+                frozen, movements, context, post_minutes_scale=post_minutes_scale, rng=rng
+            )
+        out = frozen.copy()
+        out["post_move_minutes"] = np.nan
+        out["estimated_metric_delta"] = np.nan
+        out["post_move_outcome"] = np.nan
+        out["label_source"] = "missing_gamelogs"
+        return out
+
+    rng = rng or np.random.default_rng(7)
+    out = frozen.copy()
+    move_lookup = movements.set_index(["player_id", "to_team_id"], drop=False).sort_index()
+
+    post_minutes: list[float] = []
+    metric_deltas: list[float] = []
+    outcomes: list[float] = []
+    sources: list[str] = []
+    fallback_rows: list[int] = []
+
+    for idx, row in out.iterrows():
+        key = (int(row["player_id"]), int(row["to_team_id"]))
+        move = move_lookup.loc[key] if key in move_lookup.index else None
+        if isinstance(move, pd.DataFrame):
+            move = move.iloc[0]
+
+        move_date = None
+        if move is not None and "move_date" in move.index:
+            move_date = pd.to_datetime(move["move_date"], errors="coerce")
+
+        player = context.players.get(int(row["player_id"]))
+        observed_min, observed_rates = _observed_rates_from_gamelogs(
+            game_logs,
+            player_id=int(row["player_id"]),
+            team_id=int(row["to_team_id"]),
+            after_date=move_date,
+        )
+
+        if observed_min <= 0 or not observed_rates:
+            fallback_rows.append(idx)
+            post_minutes.append(np.nan)
+            metric_deltas.append(np.nan)
+            outcomes.append(np.nan)
+            sources.append("fallback")
+            continue
+
+        delta = _estimate_metric_delta(player, observed_rates) if player else 0.0
+        minutes = float(observed_min * post_minutes_scale)
+        minutes_norm = np.clip(minutes / POST_MOVE_MINUTES_NORM_DIVISOR, 0.0, 1.0)
+        outcome = (
+            POST_MOVE_OUTCOME_MINUTES_WEIGHT * minutes_norm
+            + POST_MOVE_OUTCOME_METRIC_WEIGHT
+            * (1.0 / (1.0 + np.exp(-POST_MOVE_OUTCOME_METRIC_SIGMOID * delta)))
+        )
+
+        post_minutes.append(minutes)
+        metric_deltas.append(delta)
+        outcomes.append(float(outcome))
+        sources.append("observed")
+
+    out["post_move_minutes"] = post_minutes
+    out["estimated_metric_delta"] = metric_deltas
+    out["post_move_outcome"] = outcomes
+    out["label_source"] = sources
+
+    if fallback_rows and fallback_to_synthetic:
+        fb = out.loc[fallback_rows].drop(columns=["post_move_minutes", "estimated_metric_delta", "post_move_outcome", "label_source"], errors="ignore")
+        fb_labeled = label_post_move_outcomes(
+            fb, movements, context, post_minutes_scale=post_minutes_scale, rng=rng
+        )
+        for col in ("post_move_minutes", "estimated_metric_delta", "post_move_outcome"):
+            out.loc[fallback_rows, col] = fb_labeled[col].to_numpy()
+        out.loc[fallback_rows, "label_source"] = "synthetic_fallback"
+
     return out
 
 

@@ -133,6 +133,56 @@ def bootstrap_disagreement_ci(
     return point, lo, hi
 
 
+def block_bootstrap_ci(
+    values: np.ndarray,
+    block_ids: np.ndarray,
+    *,
+    n_bootstrap: int = 500,
+    alpha: float = 0.10,
+    rng: np.random.Generator | None = None,
+) -> tuple[float, float, float]:
+    """
+    Block bootstrap CI respecting dependence within *block_ids*.
+
+    Resamples whole blocks (e.g. games, stints, players) with replacement,
+    then computes the mean of *values* in each bootstrap replicate.
+
+    Parameters
+    ----------
+    values
+        1d observations (e.g. stint residuals or pair scores).
+    block_ids
+        1d block label per observation (same length as *values*).
+
+    Returns ``(point, ci_low, ci_high)`` for the sample mean.
+    """
+    y = np.asarray(values, dtype=float).reshape(-1)
+    blocks = np.asarray(block_ids).reshape(-1)
+    if y.size == 0:
+        return 0.0, 0.0, 0.0
+    if y.size != blocks.size:
+        raise ValueError("values and block_ids must have the same length")
+
+    unique_blocks = np.unique(blocks)
+    n_blocks = len(unique_blocks)
+    block_to_idx = {b: np.where(blocks == b)[0] for b in unique_blocks}
+
+    point = float(np.mean(y))
+    if n_blocks < 2:
+        return point, point, point
+
+    rng = rng or np.random.default_rng(42)
+    boot_means = np.empty(n_bootstrap, dtype=float)
+    for b in range(n_bootstrap):
+        chosen = rng.choice(unique_blocks, size=n_blocks, replace=True)
+        idx = np.concatenate([block_to_idx[c] for c in chosen])
+        boot_means[b] = float(np.mean(y[idx]))
+
+    lo = float(np.quantile(boot_means, alpha / 2.0))
+    hi = float(np.quantile(boot_means, 1.0 - alpha / 2.0))
+    return point, lo, hi
+
+
 def widen_ci_for_sample(
     ci_low: float,
     ci_high: float,

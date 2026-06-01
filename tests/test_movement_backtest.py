@@ -15,12 +15,14 @@ from nba_fit.data.fetchers.transactions import (
 )
 from nba_fit.evaluation.movement_backtest import (
     freeze_pre_move_features,
+    label_post_move_from_observed,
     label_post_move_outcomes,
     run_movement_backtest,
 )
 from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.calibration import FitCalibrator, calibrate_fit_table
 from nba_fit.scoring.uncertainty import (
+    block_bootstrap_ci,
     bootstrap_disagreement_ci,
     fit_uncertainty,
     sample_size_penalty,
@@ -139,6 +141,39 @@ def test_fit_uncertainty_result_fields() -> None:
     u = fit_uncertainty(scores, minutes=200.0)
     assert u.ci_low <= u.point <= u.ci_high
     assert u.sample_penalty > 0
+
+
+def test_label_post_move_from_observed_gamelogs(context: SeasonFitContext) -> None:
+    mv = synthetic_movements(context.season, n_moves=1)
+    player_id = int(mv.iloc[0]["player_id"])
+    team_id = int(mv.iloc[0]["to_team_id"])
+    frozen = freeze_pre_move_features(context, mv)
+    logs = pd.DataFrame(
+        {
+            "PLAYER_ID": [player_id, player_id],
+            "TEAM_ID": [team_id, team_id],
+            "GAME_DATE": ["2025-11-01", "2025-11-15"],
+            "MIN": [32, 28],
+            "PTS": [24, 18],
+            "USG_PCT": [0.28, 0.26],
+            "TS_PCT": [0.58, 0.55],
+            "AST": [6, 4],
+        }
+    )
+    labeled = label_post_move_from_observed(
+        frozen, mv, context, logs, fallback_to_synthetic=False
+    )
+    assert labeled["label_source"].iloc[0] == "observed"
+    assert labeled["post_move_minutes"].iloc[0] == pytest.approx(60.0)
+    assert 0 <= labeled["post_move_outcome"].iloc[0] <= 1
+
+
+def test_block_bootstrap_ci_respects_blocks() -> None:
+    values = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+    blocks = np.array([1, 1, 1, 2, 2, 2])
+    point, lo, hi = block_bootstrap_ci(values, blocks, n_bootstrap=200)
+    assert lo <= point <= hi
+    assert point == pytest.approx(0.5)
 
 
 def test_movement_event_roundtrip() -> None:

@@ -60,26 +60,21 @@ def build_fit_index_table(
     *,
     role_context: RoleFitContext | None = None,
     impact_context: ImpactFitContext | None = None,
+    synthetic: bool = False,
 ) -> FitIndexTable:
     """Score every player×team pair with Option D ensemble and calibrate percentiles."""
-    if role_context is None:
-        try:
-            role_context = RoleFitContext.from_synthetic(context)
-        except ValueError:
-            role_context = None
+    role_context = _resolve_role_context(context, role_context, synthetic=synthetic)
+    impact_context = _resolve_impact_context(
+        context, role_context, impact_context, synthetic=synthetic
+    )
 
-    if impact_context is None and role_context is not None:
-        try:
-            impact_context = ImpactFitContext.from_synthetic(role_context)
-        except ValueError:
-            impact_context = None
-
-    rows: list[dict[str, float | int | str]] = []
+    rows: list[dict[str, float | int | str | list[str]]] = []
     for player in context.players.values():
         for team in context.teams.values():
             team_need = (
                 role_context.team_needs.get(team.team_id) if role_context else None
             )
+            degraded: list[str] = []
             sub = compute_all_submetrics(
                 player,
                 team,
@@ -87,11 +82,8 @@ def build_fit_index_table(
                 embeddings=role_context.embeddings if role_context else None,
                 archetypes=role_context.archetypes if role_context else None,
                 impact_context=impact_context,
+                degraded=degraded,
             )
-            if "team_need_fit" not in sub:
-                sub["team_need_fit"] = 0.5
-            if "lineup_impact_fit" not in sub:
-                sub["lineup_impact_fit"] = 0.5
 
             extracted = extract_ensemble_components(sub, player=player)
             raw, components = calibrated_ensemble(
@@ -104,11 +96,12 @@ def build_fit_index_table(
             )
             contribs = component_contributions(components)
 
-            row: dict[str, float | int | str] = {
+            row: dict[str, float | int | str | list[str]] = {
                 "player_id": player.player_id,
                 "team_id": team.team_id,
                 "season": context.season,
                 "raw_fit_score": raw,
+                "components_degraded": degraded,
             }
             for name in SUBMETRIC_NAMES:
                 row[name] = sub[name]
@@ -135,6 +128,64 @@ def build_fit_index_table(
         df["fit_uncertainty_high"] = highs
 
     return FitIndexTable(season=context.season, pairs=df)
+
+
+def _resolve_role_context(
+    context: SeasonFitContext,
+    role_context: RoleFitContext | None,
+    *,
+    synthetic: bool,
+) -> RoleFitContext | None:
+    if role_context is not None:
+        return role_context
+    if synthetic:
+        try:
+            return RoleFitContext.from_synthetic(context)
+        except ValueError:
+            return None
+    try:
+        return RoleFitContext.from_season(
+            context.season,
+            prefer_interim=True,
+            prefer_api=False,
+            synthetic=False,
+            persist=False,
+        )
+    except (FileNotFoundError, ValueError):
+        try:
+            return RoleFitContext.from_synthetic(context)
+        except ValueError:
+            return None
+
+
+def _resolve_impact_context(
+    context: SeasonFitContext,
+    role_context: RoleFitContext | None,
+    impact_context: ImpactFitContext | None,
+    *,
+    synthetic: bool,
+) -> ImpactFitContext | None:
+    if impact_context is not None:
+        return impact_context
+    if role_context is None:
+        return None
+    if synthetic:
+        try:
+            return ImpactFitContext.from_synthetic(role_context)
+        except ValueError:
+            return None
+    try:
+        return ImpactFitContext.from_season(
+            context.season,
+            prefer_interim=True,
+            synthetic=False,
+            persist=False,
+        )
+    except (FileNotFoundError, ValueError):
+        try:
+            return ImpactFitContext.from_synthetic(role_context)
+        except ValueError:
+            return None
 
 
 def get_pair_row(

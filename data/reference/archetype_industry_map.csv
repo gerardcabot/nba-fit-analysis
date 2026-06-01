@@ -1,0 +1,13 @@
+heuristic_label,industry_role,ctg_position_group,notes
+high_usage_creator,Primary Ball Handler,Guard,Elite usage + playmaking; maps to on-ball creator
+advantage_creator,Shot Creator,Guard,Secondary creation without primary usage tier
+movement_shooter,Movement Shooter,Wing,Off-ball movement + shooting volume
+low_usage_spacer,Spot Up Wing,Wing,Floor-spacing wing with minimal usage
+connector_wing,Connector,Wing,Passing wing without primary scoring load
+rim_running_big,Roll/Cut Big,Big,Rim frequency + finishing at the basket
+stretch_big,Spot Up Big,Big,Stretch big with perimeter shooting
+defensive_guard,Combo Guard,Guard,Defensive guard profile; low usage backcourt
+rim_protector,Versatile Big,Big,Rim protection anchor
+rebound_finisher,Roll/Cut Big,Big,Glass + interior finishing
+versatile_forward,Connector,Wing,Default forward bucket when no sharper signal
+unclassified_role,Unknown,Unknown,HDBSCAN noise or unmapped cluster

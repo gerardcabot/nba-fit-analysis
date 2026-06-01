@@ -6,11 +6,13 @@ from nba_fit.config.settings import (
     INGEST_TIER_IMPACT,
     INGEST_TIER_MVP,
     INGEST_TIER_ROLE,
+    INGEST_TIER_TACTICAL,
     MIN_SEASON_MINUTES_STABLE_RATES,
     NBA_TEAM_IDS,
     OPTION_A_MVP_ENDPOINTS,
     OPTION_B_ROLE_ENDPOINTS,
     OPTION_C_IMPACT_ENDPOINTS,
+    OPTION_D_TACTICAL_ENDPOINTS,
     POSSESSIONS_PER_TEAM_PER_GAME_REGULATION,
     REGULAR_SEASON_GAME_COUNT,
     get_settings,
@@ -59,6 +61,14 @@ def test_option_c_impact_ingest_bundle():
     assert len(OPTION_C_IMPACT_ENDPOINTS) == 3
     assert INGEST_IMPACT_MAX_GAMES_DEV > 0
     assert INGEST_IMPACT_MAX_GAMES_DEV < REGULAR_SEASON_GAME_COUNT
+
+
+def test_option_d_tactical_ingest_bundle():
+    assert INGEST_TIER_TACTICAL == "tactical"
+    assert "leaguehustlestatsplayer" in OPTION_D_TACTICAL_ENDPOINTS
+    assert "leaguedashptdefend" in OPTION_D_TACTICAL_ENDPOINTS
+    assert "gravityleaders" in OPTION_D_TACTICAL_ENDPOINTS
+    assert len(OPTION_D_TACTICAL_ENDPOINTS) == 4
 
 
 def test_canonical_ids():

@@ -46,6 +46,18 @@ def test_archetype_labels_in_vocab(role_context: RoleFitContext) -> None:
         assert str(label) in ARCHETYPE_LABEL_VOCAB
 
 
+def test_archetype_industry_roles(role_context: RoleFitContext) -> None:
+    from nba_fit.models.role_taxonomy import INDUSTRY_OFFENSIVE_ROLES, map_heuristic_to_industry
+
+    for heuristic, industry in zip(
+        role_context.archetypes.archetype_labels,
+        role_context.archetypes.industry_roles,
+        strict=False,
+    ):
+        assert str(industry) == map_heuristic_to_industry(str(heuristic))
+        assert str(industry) in INDUSTRY_OFFENSIVE_ROLES
+
+
 def test_team_need_profiles_cover_teams(role_context: RoleFitContext, context: SeasonFitContext) -> None:
     assert set(role_context.team_needs.keys()) == set(context.teams.keys())
     for profile in role_context.team_needs.values():
