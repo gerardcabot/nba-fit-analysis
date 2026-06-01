@@ -2,7 +2,9 @@
 
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY, ESSENTIAL_ENDPOINTS
 from nba_fit.config.settings import (
+    INGEST_TIER_MVP,
     MIN_SEASON_MINUTES_STABLE_RATES,
+    OPTION_A_MVP_ENDPOINTS,
     POSSESSIONS_PER_TEAM_PER_GAME_REGULATION,
     get_settings,
 )
@@ -25,6 +27,13 @@ def test_essential_registry_includes_core_endpoints():
     assert "leaguedashplayerstats" in ESSENTIAL_ENDPOINTS
     assert "playbyplayv3" in ESSENTIAL_ENDPOINTS
     assert ENDPOINT_REGISTRY["synergyplaytypes"].reliability == "unreliable"
+
+
+def test_option_a_mvp_ingest_bundle():
+    assert INGEST_TIER_MVP == "mvp"
+    assert "leaguedashplayerstats" in OPTION_A_MVP_ENDPOINTS
+    assert "teamestimatedmetrics" in OPTION_A_MVP_ENDPOINTS
+    assert len(OPTION_A_MVP_ENDPOINTS) == 7
 
 
 def test_canonical_ids():

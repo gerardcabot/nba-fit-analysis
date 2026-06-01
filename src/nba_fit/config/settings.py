@@ -36,6 +36,49 @@ DEFAULT_LEAGUE_ID: str = "00"
 DEFAULT_SEASONS: tuple[str, ...] = ("2025-26", "2024-25", "2023-24")
 
 # ---------------------------------------------------------------------------
+# Ingest tiers (Option A interpretable fit index — league-dash MVP tables)
+# ---------------------------------------------------------------------------
+
+# CLI tier name for the first milestone ingest bundle
+INGEST_TIER_MVP: str = "mvp"
+
+# Option A core league-dash endpoints (season-scoped; no per-game chunking)
+OPTION_A_MVP_ENDPOINTS: tuple[str, ...] = (
+    "leaguedashplayerstats",
+    "leaguedashteamstats",
+    "playerestimatedmetrics",
+    "teamestimatedmetrics",
+    "leaguedashplayerbiostats",
+    "leaguedashplayershotlocations",
+    "leaguedashteamshotlocations",
+)
+
+# League-dash bulk pulls: blank team filter returns all teams (probe uses one team)
+LEAGUE_DASH_TEAM_ID_NULLABLE_ALL: str = ""
+
+# Canonical nba_api dataset names inside multi-frame responses
+LEAGUE_DASH_PRIMARY_DATASET: dict[str, str] = {
+    "leaguedashplayerstats": "LeagueDashPlayerStats",
+    "leaguedashteamstats": "LeagueDashTeamStats",
+    "playerestimatedmetrics": "PlayerEstimatedMetrics",
+    "teamestimatedmetrics": "TeamEstimatedMetrics",
+    "leaguedashplayerbiostats": "LeagueDashPlayerBioStats",
+    "leaguedashplayershotlocations": "ShotLocations",
+    "leaguedashteamshotlocations": "ShotLocations",
+}
+
+# Interim table names (hive roots under data/interim/)
+INTERIM_TABLE_PLAYERS: str = "players"
+INTERIM_TABLE_TEAMS: str = "teams"
+
+# Box-score columns used in MVP visuals / feature eligibility
+PLAYER_STAT_PTS: str = "PTS"
+PLAYER_STAT_USG_PCT: str = "USG_PCT"
+PLAYER_STAT_TS_PCT: str = "TS_PCT"
+PLAYER_STAT_EST_USG_PCT: str = "E_USG_PCT"
+PLAYER_STAT_MIN: str = "MIN"
+
+# ---------------------------------------------------------------------------
 # HTTP / cache policy (extracted from probe_all_nba_endpoints.py)
 # ---------------------------------------------------------------------------
 
