@@ -14,18 +14,16 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from nba_fit.config.settings import (
-    DEFAULT_SEASON,
-    DEFAULT_TEAM_ID,
     ONOFF_COL_COURT_STATUS,
     ONOFF_COL_VS_PLAYER_NAME,
     ONOFF_STAT_MIN,
     ONOFF_SUMMARY_DATASETS,
-    get_settings,
 )
 from nba_fit.data.client import NBAClient
 from nba_fit.data.fetchers.lineups_onoff import fetch_lineup_onoff
 from nba_fit.normalize.lineups import interim_onoff_path, load_onoff_table, onoff_summary_rows
 
+from visual_tests._cli import resolve_season_team
 from visual_tests._plot_utils import apply_plot_style, save_figure
 
 
@@ -65,10 +63,8 @@ def _load_onoff_frame(season: str, team_id: int) -> pd.DataFrame:
     return result.frames[ds_name]
 
 
-def main() -> int:
-    settings = get_settings()
-    season = settings.default_season or DEFAULT_SEASON
-    team_id = DEFAULT_TEAM_ID
+def main(season: str | None = None, team_id: int | None = None) -> int:
+    season, team_id = resolve_season_team(season=season, team_id=team_id)
 
     df = _load_onoff_frame(season, team_id)
     sample = _on_court_minutes(df, top_n=12)
@@ -90,7 +86,7 @@ def main() -> int:
     ax.set_title(f"On-court minutes sample — team {team_id}, {season}")
     fig.tight_layout()
     out = save_figure(fig, "06_onoff_minutes", subdir="ingest")
-    print(f"Wrote {out}")
+    print(f"Wrote {out} (season={season}, team_id={team_id}, n_bars={len(sample)})")
     return 0
 
 

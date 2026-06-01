@@ -14,17 +14,32 @@ if str(_ROOT / "src") not in sys.path:
 
 import numpy as np
 
-from nba_fit.features.season_context import DEMO_TEAM_ID, SeasonFitContext
+from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.role_context import RoleFitContext
+from visual_tests._cli import resolve_season_team
 from visual_tests._plot_utils import apply_plot_style, save_figure
+from visual_tests._role_loader import load_trained_role_context
 
 
-def main() -> int:
-    context = SeasonFitContext.from_synthetic("2025-26", n_players=80)
-    role_ctx = RoleFitContext.from_synthetic(context)
-    profile = role_ctx.team_needs.get(DEMO_TEAM_ID)
+def main(
+    season: str | None = None,
+    team_id: int | None = None,
+    *,
+    role_context: RoleFitContext | None = None,
+) -> int:
+    season, team_id = resolve_season_team(season=season, team_id=team_id)
+
+    role_ctx = role_context
+    context: SeasonFitContext | None = None
+    if role_ctx is None:
+        role_ctx = load_trained_role_context(season)
+        context = SeasonFitContext.build(season, prefer_interim=True, prefer_api=False)
+    else:
+        context = SeasonFitContext.build(season, prefer_interim=True, prefer_api=False)
+
+    profile = role_ctx.team_needs.get(team_id)
     if profile is None:
-        print(f"No team need profile for team {DEMO_TEAM_ID}", file=sys.stderr)
+        print(f"No team need profile for team {team_id}", file=sys.stderr)
         return 1
 
     arch_labels = list(profile.archetype_labels)
@@ -52,16 +67,19 @@ def main() -> int:
     ax.set_xticklabels(labels, size=8)
     ax.set_ylim(0, 1)
     ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-    team_name = context.teams.get(DEMO_TEAM_ID)
-    title_team = team_name.display_name if team_name else str(DEMO_TEAM_ID)
+    team_name = context.teams.get(team_id)
+    title_team = team_name.display_name if team_name else str(team_id)
     ax.set_title(
-        f"Team need radar — {title_team} ({context.season})\n"
+        f"Team need radar — {title_team} ({season})\n"
         "Higher = larger archetype gap or weakness proxy"
     )
     fig.tight_layout()
 
     path = save_figure(fig, "08_team_need_radar", subdir="option_b")
-    print(f"Wrote {path}")
+    print(
+        f"Wrote {path} (season={season}, team_id={team_id}, "
+        f"n_axes={len(labels)})"
+    )
     return 0
 
 
