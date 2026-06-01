@@ -7,7 +7,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from visual_tests._constants import FIGURES_DIR
+from visual_tests import _constants
 
 FIGURE_DPI = 120
 DEFAULT_FIG_WIDTH_IN = 10.0
@@ -55,9 +55,15 @@ def new_figure(
     return fig, ax
 
 
+def _figures_dir() -> Path:
+    """Resolve output dir (``run_*_validation`` may rebind ``_constants.FIGURES_DIR``)."""
+    return _constants.FIGURES_DIR
+
+
 def ensure_figures_dir() -> Path:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    return FIGURES_DIR
+    out = _figures_dir()
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 def save_figure(fig: plt.Figure, stem: str, *, subdir: str | None = None) -> Path:

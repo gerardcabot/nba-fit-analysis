@@ -14,6 +14,7 @@ from nba_fit.models.archetypes import (
 )
 from nba_fit.models.constants import (
     ARCHETYPE_N_COMPONENTS,
+    LINEUP_IMPACT_WEIGHT,
     ROLE_EMBEDDING_N_COMPONENTS,
     ROLE_FIT_WEIGHT,
 )
@@ -43,6 +44,18 @@ def test_role_embedding_shape(context: SeasonFitContext) -> None:
 def test_archetype_labels_in_vocab(role_context: RoleFitContext) -> None:
     for label in role_context.archetypes.archetype_labels:
         assert str(label) in ARCHETYPE_LABEL_VOCAB
+
+
+def test_archetype_industry_roles(role_context: RoleFitContext) -> None:
+    from nba_fit.models.role_taxonomy import INDUSTRY_OFFENSIVE_ROLES, map_heuristic_to_industry
+
+    for heuristic, industry in zip(
+        role_context.archetypes.archetype_labels,
+        role_context.archetypes.industry_roles,
+        strict=False,
+    ):
+        assert str(industry) == map_heuristic_to_industry(str(heuristic))
+        assert str(industry) in INDUSTRY_OFFENSIVE_ROLES
 
 
 def test_team_need_profiles_cover_teams(role_context: RoleFitContext, context: SeasonFitContext) -> None:
@@ -87,7 +100,9 @@ def test_submetrics_include_team_need_fit(role_context: RoleFitContext, context:
 
 def test_weights_include_role_fit_and_sum_to_one() -> None:
     assert "team_need_fit" in SUBMETRIC_WEIGHTS
+    assert "lineup_impact_fit" in SUBMETRIC_WEIGHTS
     assert SUBMETRIC_WEIGHTS["team_need_fit"] == pytest.approx(ROLE_FIT_WEIGHT)
+    assert SUBMETRIC_WEIGHTS["lineup_impact_fit"] == pytest.approx(LINEUP_IMPACT_WEIGHT)
     assert abs(sum(SUBMETRIC_WEIGHTS.values()) - 1.0) < 1e-9
 
 

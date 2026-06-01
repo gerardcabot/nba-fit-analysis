@@ -122,35 +122,16 @@ def _load_visual_test_module(script_stem: str):
     return mod
 
 
-def _newest_visual_figure(stem: str, *, search_roots: list[Path]) -> Path | None:
-    """Pick the newest PNG for *stem*, preferring nested subdirs over legacy flat paths."""
-    matches: list[Path] = []
-    for root in search_roots:
-        if root.is_dir():
-            matches.extend(root.rglob(f"{stem}*.png"))
-    if not matches:
-        return None
-    return max(matches, key=lambda p: (len(p.parts), p.stat().st_mtime))
-
-
 def _copy_visual_figure(src: Path, dest_name: str) -> Path | None:
     if not src.is_file():
         return None
     dest = _FIGURES_OUT / dest_name
-    if src.resolve() == dest.resolve():
-        return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(src.read_bytes())
     return dest
 
 
-def _run_visual_tests(
-    log_lines: list[str],
-    *,
-    season: str,
-    team_id: int,
-    role_ctx: RoleFitContext | None,
-) -> dict[str, object]:
+def _run_visual_tests(log_lines: list[str]) -> dict[str, object]:
     """Run visual_tests 06–08 in-process; save PNGs under validation figures/."""
     if str(_REPO) not in sys.path:
         sys.path.insert(0, str(_REPO))
@@ -161,26 +142,18 @@ def _run_visual_tests(
     vt_constants.FIGURES_DIR = _FIGURES_OUT
     plot_utils.FIGURES_DIR = _FIGURES_OUT
 
-    modules: list[tuple[str, str, dict[str, object]]] = [
-        ("06_onoff_minutes", "ingest/06_onoff_minutes.png", {}),
-        ("07_archetype_map", "roles/07_archetype_map.png", {"role_context": role_ctx}),
-        ("08_team_need_radar", "option_b/08_team_need_radar.png", {"role_context": role_ctx}),
+    modules = [
+        ("06_onoff_minutes", "06_onoff_minutes.png"),
+        ("07_archetype_map", "07_archetype_map.png"),
+        ("08_team_need_radar", "08_team_need_radar.png"),
     ]
     results: dict[str, object] = {}
-    for script_stem, dest_name, extra_kwargs in modules:
+    for script_stem, dest_name in modules:
         short = script_stem
-        _log(
-            f"Visual test {short} (season={season}, team_id={team_id})...",
-            log_lines,
-        )
+        _log(f"Visual test {short}...", log_lines)
         try:
             mod = _load_visual_test_module(script_stem)
-            kwargs: dict[str, object] = {
-                "season": season,
-                "team_id": team_id,
-                **{k: v for k, v in extra_kwargs.items() if v is not None},
-            }
-            rc = int(mod.main(**kwargs))
+            rc = int(mod.main())
         except Exception as exc:  # noqa: BLE001
             rc = 1
             results[short] = {"exit_code": rc, "error": str(exc), "figures": []}
@@ -188,17 +161,17 @@ def _run_visual_tests(
             continue
 
         copied: list[str] = []
-        dest_path = _FIGURES_OUT / dest_name
-        candidate = _newest_visual_figure(
-            short,
-            search_roots=[_FIGURES_OUT, _REPO / "reports" / "figures"],
-        )
-        if candidate is not None:
+        for candidate in sorted(_FIGURES_OUT.rglob(f"{short}*.png")):
             rel = _copy_visual_figure(candidate, dest_name)
             if rel is not None:
                 copied.append(str(rel.relative_to(_OUT)))
-        elif dest_path.is_file():
-            copied.append(str(dest_path.relative_to(_OUT)))
+                break
+        if not copied:
+            for candidate in sorted((_REPO / "reports" / "figures").rglob(f"{short}*.png")):
+                rel = _copy_visual_figure(candidate, dest_name)
+                if rel is not None:
+                    copied.append(str(rel.relative_to(_OUT)))
+                    break
         results[short] = {"exit_code": rc, "figures": copied}
         _log(f"  {short} exit={rc} figures={len(copied)}", log_lines)
     return results
@@ -384,19 +357,7 @@ def main() -> int:
     log_lines.append(f"- **Exit code:** {pytest_rc}")
 
     log_lines.extend(["", "## Visual tests", ""])
-    if not train_ok or role_ctx is None:
-        _log(
-            "Skipping visual tests — train-roles did not produce RoleFitContext.",
-            log_lines,
-        )
-        visual_results: dict[str, object] = {"skipped": True, "reason": "train_roles_failed"}
-    else:
-        visual_results = _run_visual_tests(
-            log_lines,
-            season=PRIMARY_SEASON,
-            team_id=TEAM_ID,
-            role_ctx=role_ctx,
-        )
+    visual_results = _run_visual_tests(log_lines)
 
     ev_summary = _explained_variance_summary(role_ctx) if role_ctx else {"available": False}
     arch_counts = (

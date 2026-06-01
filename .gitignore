@@ -23,6 +23,7 @@ reports/*
 !reports/validation/**
 
 # IDE / OS
+.cursor/
 .idea/
 .vscode/
 .DS_Store
@@ -33,3 +34,6 @@ probe_run_*.json
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Local PR draft bodies (not for publish)
+.pr-bodies/

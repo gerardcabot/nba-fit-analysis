@@ -1,6 +1,6 @@
 # Option B validation run log
 
-- **Started (UTC):** 2026-05-28T17:11:26Z
+- **Started (UTC):** 2026-05-26T21:47:57Z
 - **Season:** 2024-25
 
 ## Commands
@@ -15,18 +15,18 @@
 
 ## Ingest (MVP)
 
-[2026-05-28T17:11:28Z] Ingest tier=mvp done in 1.3s (endpoints=['leaguedashplayerstats', 'leaguedashteamstats', 'playerestimatedmetrics', 'teamestimatedmetrics', 'leaguedashplayerbiostats', 'leaguedashplayershotlocations', 'leaguedashteamshotlocations'])
+[2026-05-26T21:47:59Z] Ingest tier=mvp done in 2.0s (endpoints=['leaguedashplayerstats', 'leaguedashteamstats', 'playerestimatedmetrics', 'teamestimatedmetrics', 'leaguedashplayerbiostats', 'leaguedashplayershotlocations', 'leaguedashteamshotlocations'])
 
 ## Ingest (role — 30 teams × team-scoped endpoints)
 
-[2026-05-28T17:11:28Z] Role tier: 4 endpoints, ~30 teams each for 3 team-scoped pulls (cache speeds repeat runs).
-[2026-05-28T17:11:28Z] Role interim tables already present; skipping role-tier re-ingest.
+[2026-05-26T21:47:59Z] Role tier: 4 endpoints, ~30 teams each for 3 team-scoped pulls (cache speeds repeat runs).
+[2026-05-26T21:47:59Z] Role interim tables already present; skipping role-tier re-ingest.
 - **Status:** pass
 
 ## train-roles (live interim)
 
-[2026-05-28T17:11:28Z] Training role embeddings + archetypes from interim tables...
-[2026-05-28T17:11:36Z] train-roles done in 7.9s — 569 players, 6 archetype labels
+[2026-05-26T21:47:59Z] Training role embeddings + archetypes from interim tables...
+[2026-05-26T21:48:09Z] train-roles done in 10.3s — 569 players, 6 archetype labels
 - **Players embedded:** 569
 - **Archetype labels (unique):** 6
 
@@ -67,20 +67,17 @@ tests/test_archetypes.py::test_gmm_archetype_count
     return fit_method(estimator, *args, **kwargs)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-10 passed, 16 warnings in 48.25s
+10 passed, 16 warnings in 59.98s
 ```
 - **Exit code:** 0
 
 ## Visual tests
 
-Figures use `--season 2024-25` and `--team-id 1610612747` with interim on/off, trained
-`RoleFitContext`, and live Lakers team-need profile (not synthetic defaults).
+[2026-05-26T21:55:49Z] Visual test 06_onoff_minutes...
+[2026-05-26T21:55:54Z]   06_onoff_minutes exit=0 figures=1
+[2026-05-26T21:55:54Z] Visual test 07_archetype_map...
+[2026-05-26T21:56:02Z]   07_archetype_map exit=0 figures=1
+[2026-05-26T21:56:02Z] Visual test 08_team_need_radar...
+[2026-05-26T21:56:08Z]   08_team_need_radar exit=0 figures=1
 
-[2026-05-28T17:17:53Z] Visual test 06_onoff_minutes (season=2024-25, team_id=1610612747)...
-[2026-05-28T17:17:54Z]   06_onoff_minutes exit=0 figures=1 (n_bars=12, interim 2024-25 on/off)
-[2026-05-28T17:17:54Z] Visual test 07_archetype_map (season=2024-25, team_id=1610612747)...
-[2026-05-28T17:17:55Z]   07_archetype_map exit=0 figures=1 (n_points=569, trained embeddings)
-[2026-05-28T17:17:55Z] Visual test 08_team_need_radar (season=2024-25, team_id=1610612747)...
-[2026-05-28T17:17:58Z]   08_team_need_radar exit=0 figures=1 (n_axes=10, Lakers team need)
-
-- **Finished (UTC):** 2026-05-28T17:17:58Z
+- **Finished (UTC):** 2026-05-26T21:56:08Z
