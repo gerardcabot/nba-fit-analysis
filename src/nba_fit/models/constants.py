@@ -141,3 +141,40 @@ LINEUP_REPLACEMENT_BLEND: float = 0.40
 
 # Synthetic roster lineups when interim lineup_units is unavailable.
 LINEUP_SYNTHETIC_UNITS_PER_TEAM: int = 8
+
+# ---------------------------------------------------------------------------
+# Movement backtest — post-move outcome labeling (Option D validation)
+# ---------------------------------------------------------------------------
+
+# Minutes earned proxy: pre_min × (base + fit_scale × raw_fit_score).
+POST_MOVE_MINUTES_BASE: float = 0.85
+POST_MOVE_MINUTES_FIT_SCALE: float = 0.3
+POST_MOVE_MINUTES_CAP: float = 3500.0
+POST_MOVE_MINUTES_NORM_DIVISOR: float = 2000.0
+
+# Weighted per-36 proxy delta (PTS, USG, TS, AST) vs pre-move profile.
+POST_MOVE_METRIC_WEIGHTS: dict[str, float] = {
+    "pts": 0.35,
+    "usg": 0.25,
+    "ts": 0.25,
+    "ast": 0.15,
+}
+
+# Composite outcome: minutes_norm × w_min + sigmoid(metric_delta) × w_metric.
+POST_MOVE_OUTCOME_MINUTES_WEIGHT: float = 0.6
+POST_MOVE_OUTCOME_METRIC_WEIGHT: float = 0.4
+POST_MOVE_OUTCOME_METRIC_SIGMOID: float = 5.0
+
+# Default scale when synthetic post-move rates are generated.
+POST_MOVE_SYNTHETIC_RATE_MEANS: dict[str, float] = {
+    "pts": 0.45,
+    "usg": 0.40,
+    "ts": 0.52,
+    "ast": 0.35,
+}
+POST_MOVE_SYNTHETIC_RATE_STD: float = 0.07
+
+assert abs(sum(POST_MOVE_METRIC_WEIGHTS.values()) - 1.0) < 1e-9
+
+# Ensemble weight learning (Option D calibration).
+WEIGHT_LEARNING_DEFAULT_L2: float = 0.01
