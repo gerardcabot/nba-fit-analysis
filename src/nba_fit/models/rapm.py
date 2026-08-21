@@ -320,6 +320,12 @@ def stints_from_possessions(possessions: pd.DataFrame) -> pd.DataFrame:
         if n_poss <= 0:
             continue
 
+        min_game_id: str | None = None
+        if "game_id" in group.columns:
+            gids = group["game_id"].dropna().astype(str)
+            if len(gids):
+                min_game_id = str(sorted(gids)[0])
+
         off_pts_total = 0.0
         def_pts_total = 0.0
         for _, prow in group.iterrows():
@@ -335,17 +341,18 @@ def stints_from_possessions(possessions: pd.DataFrame) -> pd.DataFrame:
             def_rating = _LEAGUE_AVG_DEF_RATING
 
         team_id = int(team_raw) if pd.notna(team_raw) else 0
-        rows.append(
-            {
-                "player_ids": players,
-                "team_id": team_id,
-                "net_rating": off_rating - def_rating,
-                "off_rating": off_rating,
-                "def_rating": def_rating,
-                "minutes": float(n_poss),
-                "stint_weight": float(n_poss),
-            }
-        )
+        row: dict[str, object] = {
+            "player_ids": players,
+            "team_id": team_id,
+            "net_rating": off_rating - def_rating,
+            "off_rating": off_rating,
+            "def_rating": def_rating,
+            "minutes": float(n_poss),
+            "stint_weight": float(n_poss),
+        }
+        if min_game_id is not None:
+            row["min_game_id"] = min_game_id
+        rows.append(row)
 
     stints = pd.DataFrame(rows)
     if stints.empty:
@@ -403,11 +410,26 @@ def fit_rapm_from_possessions(
     season: str,
     alpha: float = RAPM_RIDGE_ALPHA,
     half_life_games: float | None = None,
+    tune_hyperparameters: bool = False,
 ) -> RapmArtifacts:
     """Convenience: ``stints_from_possessions`` then ridge off/def split."""
+    from nba_fit.config.settings import RAPM_RECENCY_HALF_LIFE_GAMES
+
     stints = stints_from_possessions(possessions)
     if stints.empty:
         raise ValueError("No valid possession stints with parseable lineup_id player lists")
+
+    tune_meta: dict[str, object] = {}
+    if tune_hyperparameters:
+        from nba_fit.models.rapm_tuning import tune_rapm_hyperparameters
+
+        tune = tune_rapm_hyperparameters(stints)
+        alpha = tune.ridge_alpha
+        half_life_games = tune.recency_half_life_games
+        tune_meta = tune.metadata_fields()
+
+    if half_life_games is None:
+        half_life_games = RAPM_RECENCY_HALF_LIFE_GAMES
 
     stint_players = [list(map(int, s)) for s in stints["player_ids"]]
     recency = recency_weights(len(stint_players), half_life_games)
@@ -432,6 +454,7 @@ def fit_rapm_from_possessions(
         ridge_alpha=artifacts.ridge_alpha,
         recency_half_life_games=artifacts.recency_half_life_games,
         rapm_source="possessions",
+        metadata=tune_meta,
     )
     return check_degenerate_rapm(artifacts)
 
@@ -442,11 +465,26 @@ def fit_rapm_from_lineup_table(
     season: str,
     alpha: float = RAPM_RIDGE_ALPHA,
     half_life_games: float | None = None,
+    tune_hyperparameters: bool = False,
 ) -> RapmArtifacts:
     """Convenience: ``stints_from_lineup_units`` then ridge off/def split."""
+    from nba_fit.config.settings import RAPM_RECENCY_HALF_LIFE_GAMES
+
     stints = stints_from_lineup_units(lineups)
     if stints.empty:
         raise ValueError("No valid lineup stints with parseable GROUP_ID player lists")
+
+    tune_meta: dict[str, object] = {}
+    if tune_hyperparameters:
+        from nba_fit.models.rapm_tuning import tune_rapm_hyperparameters
+
+        tune = tune_rapm_hyperparameters(stints)
+        alpha = tune.ridge_alpha
+        half_life_games = tune.recency_half_life_games
+        tune_meta = tune.metadata_fields()
+
+    if half_life_games is None:
+        half_life_games = RAPM_RECENCY_HALF_LIFE_GAMES
 
     stint_players = [list(map(int, s)) for s in stints["player_ids"]]
     recency = recency_weights(len(stint_players), half_life_games)
@@ -471,6 +509,7 @@ def fit_rapm_from_lineup_table(
         ridge_alpha=artifacts.ridge_alpha,
         recency_half_life_games=artifacts.recency_half_life_games,
         rapm_source="lineup_units",
+        metadata=tune_meta,
     )
     return check_degenerate_rapm(artifacts)
 

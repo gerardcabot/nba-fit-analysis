@@ -22,6 +22,38 @@ from nba_fit.scoring.constants import (
 )
 from nba_fit.scoring.submetrics import weighted_raw_score
 
+_WEIGHTS_CACHE: dict[str, dict[str, float]] = {}
+
+
+def resolve_ensemble_component_weights(
+    season: str | None = None,
+    *,
+    weights: Mapping[str, float] | None = None,
+) -> dict[str, float]:
+    """
+    Return ensemble weights for scoring.
+
+    Priority: explicit *weights* → learned artifact for *season* → priors in
+    ``scoring.constants.ENSEMBLE_COMPONENT_WEIGHTS``.
+    """
+    if weights is not None:
+        return dict(weights)
+    if season is not None:
+        if season not in _WEIGHTS_CACHE:
+            from nba_fit.models.weight_learning import load_ensemble_weights
+
+            learned = load_ensemble_weights(season)
+            if learned is not None:
+                _WEIGHTS_CACHE[season] = learned
+        if season in _WEIGHTS_CACHE:
+            return dict(_WEIGHTS_CACHE[season])
+    return dict(ENSEMBLE_COMPONENT_WEIGHTS)
+
+
+def clear_ensemble_weights_cache() -> None:
+    """Clear in-process learned-weight cache (tests)."""
+    _WEIGHTS_CACHE.clear()
+
 
 def profile_fit_from_submetrics(submetrics: Mapping[str, float]) -> float:
     """Weighted Option A profile block (off/def/usage/shot/spacing)."""
@@ -83,19 +115,31 @@ def apply_risk_dampener(raw_score: float, risk_penalty: float) -> float:
     return raw_score * dampener
 
 
-def raw_ensemble_score(components: Mapping[str, float]) -> float:
+def raw_ensemble_score(
+    components: Mapping[str, float],
+    *,
+    season: str | None = None,
+    weights: Mapping[str, float] | None = None,
+) -> float:
     """Weighted sum of positive components (excludes risk_penalty)."""
+    component_weights = resolve_ensemble_component_weights(season, weights=weights)
     total = 0.0
-    for name, weight in ENSEMBLE_COMPONENT_WEIGHTS.items():
+    for name, weight in component_weights.items():
         total += weight * float(components.get(name, 0.5))
     risk = float(components.get("risk_penalty", 0.0))
     return apply_risk_dampener(total, risk)
 
 
-def component_contributions(components: Mapping[str, float]) -> dict[str, float]:
+def component_contributions(
+    components: Mapping[str, float],
+    *,
+    season: str | None = None,
+    weights: Mapping[str, float] | None = None,
+) -> dict[str, float]:
     """Weighted contribution of each positive component to the pre-risk raw score."""
+    component_weights = resolve_ensemble_component_weights(season, weights=weights)
     out: dict[str, float] = {}
-    for name, weight in ENSEMBLE_COMPONENT_WEIGHTS.items():
+    for name, weight in component_weights.items():
         out[name] = weight * float(components.get(name, 0.5))
     return out
 
@@ -129,6 +173,9 @@ def calibrated_ensemble(
     projected_impact: float,
     replacement_upgrade: float,
     risk_penalty: float,
+    *,
+    season: str | None = None,
+    weights: Mapping[str, float] | None = None,
 ) -> tuple[float, dict[str, float]]:
     """
     Combine ensemble components into a single raw score in [0, 1].
@@ -143,4 +190,4 @@ def calibrated_ensemble(
         "replacement_upgrade": replacement_upgrade,
         "risk_penalty": risk_penalty,
     }
-    return raw_ensemble_score(components), components
+    return raw_ensemble_score(components, season=season, weights=weights), components

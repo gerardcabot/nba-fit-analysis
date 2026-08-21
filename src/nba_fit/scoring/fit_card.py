@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from nba_fit.features.season_context import SeasonFitContext
+from nba_fit.models.impact_context import ImpactFitContext
 from nba_fit.models.role_context import RoleFitContext
 from nba_fit.scoring.constants import ENSEMBLE_DERIVED_NAMES, SUBMETRIC_NAMES
 from nba_fit.scoring.ensemble import component_contributions, uncertainty_band
@@ -20,6 +21,7 @@ def build_fit_card(
     context: SeasonFitContext,
     *,
     role_context: RoleFitContext | None = None,
+    impact_context: ImpactFitContext | None = None,
     include_lineup_synergy: bool = True,
     lineup_synthetic: bool = False,
 ) -> dict[str, Any]:
@@ -62,6 +64,9 @@ def build_fit_card(
 
     archetype_label: str | None = None
     archetype_id: int | None = None
+    industry_role: str | None = None
+    soft_role_display: str | None = None
+    industry_role_probs: dict[str, float] | None = None
     team_need_fit_value: float | None = submetrics.get("team_need_fit")
     comps: list[dict[str, Any]] = []
     comps_note = "Nearest-neighbor comps in role embedding space (Option B)"
@@ -76,6 +81,9 @@ def build_fit_card(
     if rc is not None:
         archetype_label = rc.archetypes.label_for(player_id)
         archetype_id = rc.archetypes.cluster_for(player_id)
+        industry_role = rc.archetypes.industry_role_for(player_id)
+        industry_role_probs = rc.archetypes.industry_probs_for(player_id)
+        soft_role_display = rc.archetypes.soft_role_display_for(player_id)
         need = rc.team_needs.get(team_id)
         player = context.players.get(player_id)
         if need is not None and player is not None:
@@ -102,6 +110,7 @@ def build_fit_card(
             prefer_interim=context.source != "synthetic",
             prefer_api=context.source == "api",
             synthetic=lineup_synthetic or context.source == "synthetic",
+            impact_context=impact_context,
         )
         lineup_synergy = sim.lineup_synergy_block()
         projected_net_rating_delta = sim.projected_net_rating_delta
@@ -130,6 +139,9 @@ def build_fit_card(
         "components_degraded": fallbacks,
         "fallbacks": fallbacks,
         "archetype": archetype_label,
+        "industry_role": industry_role,
+        "soft_role_display": soft_role_display,
+        "industry_role_probs": industry_role_probs,
         "archetype_id": archetype_id,
         "team_need_fit": team_need_fit_value,
         "role_fit": team_need_fit_value,

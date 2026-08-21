@@ -168,6 +168,9 @@ def build_team_features(
         "off_weakness": -off_rtg,
         "tov_weakness": series_or_nan(work, "TM_TOV_PCT"),
         "rim_def_freq_gap": series_or_nan(work, "FREQ"),
+        "lineup_worst_net": series_or_nan(work, "LINEUP_WORST_NET_RATING"),
+        "lineup_mean_net": series_or_nan(work, "LINEUP_MEAN_NET_RATING"),
+        "lineup_bad_min_share": series_or_nan(work, "LINEUP_BAD_MIN_SHARE"),
     }
 
     roster_composition: dict[str, pd.Series] = {}

@@ -93,8 +93,9 @@ def build_fit_index_table(
                 extracted["projected_impact"],
                 extracted["replacement_upgrade"],
                 extracted["risk_penalty"],
+                season=context.season,
             )
-            contribs = component_contributions(components)
+            contribs = component_contributions(components, season=context.season)
 
             row: dict[str, float | int | str | list[str]] = {
                 "player_id": player.player_id,

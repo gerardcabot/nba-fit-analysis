@@ -21,6 +21,15 @@ MOVEMENT_COLUMNS: tuple[str, ...] = (
     "movement_type",
 )
 
+# Required columns when curating ``movements.csv`` (``season`` optional in file).
+MANUAL_MOVEMENT_TEMPLATE_COLUMNS: tuple[str, ...] = (
+    "player_id",
+    "from_team_id",
+    "to_team_id",
+    "move_date",
+    "movement_type",
+)
+
 _MANUAL_TEMPLATE_NAME = "movements_template.csv"
 _README_NAME = "README.md"
 
@@ -48,7 +57,12 @@ class MovementEvent:
 
 
 def transactions_dir() -> Path:
-    """``data/raw/transactions/`` — manual CSVs and derived movement caches."""
+    """
+    ``{NBA_FIT_DATA_ROOT or repo}/raw/transactions/`` — manual CSVs and caches.
+
+    Override the data root with env ``NBA_FIT_DATA_ROOT`` (see ``get_settings``).
+    Movement parquet caches: ``movements_{season}.parquet``.
+    """
     path = get_settings().data_raw / "transactions"
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -94,7 +108,10 @@ def ensure_stub_template() -> Path:
             "3. ``fetch_movements_from_gamelogs`` — infers team changes from "
             "``playergamelogs`` (requires API or warm cache)\n"
             "4. ``synthetic_movements`` — deterministic demo rows for tests\n\n"
-            "Required columns: "
+            "Manual CSV template columns (``season`` optional in file): "
+            + ", ".join(MANUAL_MOVEMENT_TEMPLATE_COLUMNS)
+            + "\n\n"
+            "Cached parquet includes: "
             + ", ".join(MOVEMENT_COLUMNS)
             + "\n",
             encoding="utf-8",
@@ -117,13 +134,16 @@ def _normalize_movements(df: pd.DataFrame, *, season: str | None = None) -> pd.D
     return out.sort_values("move_date").reset_index(drop=True)
 
 
-def load_manual_movements(path: Path | None = None) -> pd.DataFrame:
+def load_manual_movements(path: Path | None = None, *, season: str | None = None) -> pd.DataFrame:
     """Load curated ``movements.csv`` if present; else empty frame with schema."""
     ensure_stub_template()
     path = path or manual_csv_path()
     if not path.exists():
         return pd.DataFrame(columns=list(MOVEMENT_COLUMNS))
-    return _normalize_movements(pd.read_csv(path))
+    raw = pd.read_csv(path)
+    if "season" not in raw.columns and season is not None:
+        raw["season"] = season
+    return _normalize_movements(raw, season=season)
 
 
 def save_movements_cache(df: pd.DataFrame, season: str) -> Path:
@@ -225,7 +245,7 @@ def fetch_movements_from_gamelogs(
     For league-wide logs, pass ``player_id_nullable=""`` in *extra_kwargs*
     when the endpoint allows it; otherwise the client default probes one player.
     """
-    kwargs = {"player_id_nullable": ""}
+    kwargs = {"player_id_nullable": "", "team_id_nullable": ""}
     if extra_kwargs:
         kwargs.update(extra_kwargs)
     result = client.fetch(
@@ -269,6 +289,64 @@ def synthetic_movements(
     return _normalize_movements(pd.DataFrame(rows), season=season)
 
 
+def load_gamelogs_for_season(
+    season: str,
+    *,
+    client: NBAClient | None = None,
+    allow_api: bool = False,
+    use_cache: bool = True,
+) -> pd.DataFrame:
+    """Load league ``playergamelogs`` from cache or API when *allow_api* is True."""
+    if allow_api or client is not None:
+        client = client or NBAClient()
+        result = client.fetch(
+            "playergamelogs",
+            season=season,
+            use_cache=use_cache,
+            persist_cache=True,
+            player_id_nullable="",
+        )
+        return _gamelog_primary_frame(result)
+    cache_dir = get_settings().raw_parquet_dir("nba_api", "playergamelogs", season)
+    if not cache_dir.exists():
+        return pd.DataFrame()
+    frames: list[pd.DataFrame] = []
+    for path in sorted(cache_dir.glob("data_*.parquet")):
+        combined = pd.read_parquet(path)
+        if "_dataset" in combined.columns:
+            for _, group in combined.groupby("_dataset", sort=False):
+                frames.append(group.drop(columns=["_dataset"], errors="ignore"))
+        else:
+            frames.append(combined)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+def warm_movements_cache(
+    seasons: tuple[str, ...] | list[str],
+    *,
+    allow_api: bool = True,
+    client: NBAClient | None = None,
+) -> dict[str, int]:
+    """
+    Fetch and persist ``movements_{season}.parquet`` for each season.
+
+    Returns ``{season: n_movements}`` (0 when inference yields no rows).
+    """
+    client = client or (NBAClient() if allow_api else None)
+    counts: dict[str, int] = {}
+    for season in seasons:
+        mv = get_movements(
+            season,
+            client=client,
+            allow_api=allow_api,
+            use_synthetic_fallback=False,
+        )
+        counts[season] = len(mv)
+    return counts
+
+
 def get_movements(
     season: str,
     *,
@@ -281,6 +359,10 @@ def get_movements(
     Resolve movement labels for *season* without surprising network I/O.
 
     Order: parquet cache → manual CSV → API (if *allow_api*) → synthetic.
+
+    When *allow_api* is True and *client* is omitted, an :class:`NBAClient` is
+    created. Successful API inference writes
+    ``raw/transactions/movements_{season}.parquet``.
     """
     cache_path = movements_cache_path(season)
     if cache_path.exists():
@@ -290,11 +372,13 @@ def get_movements(
         manual = load_manual_movements()
         manual_season = manual.loc[manual["season"] == season] if not manual.empty else manual
         if not manual_season.empty:
+            save_movements_cache(manual_season, season)
             return manual_season.reset_index(drop=True)
 
-    if allow_api and client is not None:
+    if allow_api:
+        api_client = client or NBAClient()
         try:
-            return fetch_movements_from_gamelogs(client, season=season)
+            return fetch_movements_from_gamelogs(api_client, season=season)
         except Exception:  # noqa: BLE001
             pass
 

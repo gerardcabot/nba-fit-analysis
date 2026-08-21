@@ -27,6 +27,7 @@ def test_fetch_uses_cache_after_first_write(mock_cls, tmp_path):
 
     settings = Settings(
         root=tmp_path,
+        data_root=None,
         data_raw=tmp_path / "data" / "raw",
         data_interim=tmp_path / "data" / "interim",
         data_features=tmp_path / "data" / "features",

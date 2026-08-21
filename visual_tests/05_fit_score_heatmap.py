@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Heatmap: one player vs top-N team destinations by fit percentile."""
+"""Heatmap: one player vs top-N team destinations by fit percentile (live interim)."""
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -13,7 +14,6 @@ if str(_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_ROOT / "src"))
 
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
 
 from nba_fit.features.season_context import DEMO_PLAYER_ID, SeasonFitContext
@@ -21,14 +21,53 @@ from nba_fit.scoring.fit_index import build_fit_index_table
 from nba_fit.scoring.ranker import FitRanker
 from visual_tests._plot_utils import apply_plot_style, save_figure
 
+DEFAULT_SEASON = "2024-25"
 TOP_TEAMS = 10
 
 
-def main() -> int:
-    context = SeasonFitContext.from_synthetic("2025-26", n_players=80)
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--season",
+        default=DEFAULT_SEASON,
+        help="Season label for interim tables (default: 2024-25)",
+    )
+    parser.add_argument(
+        "--player-id",
+        type=int,
+        default=DEMO_PLAYER_ID,
+        help="NBA player id for destination heatmap (default: 2544)",
+    )
+    parser.add_argument(
+        "--top-teams",
+        type=int,
+        default=TOP_TEAMS,
+        help="Number of top destination teams to plot",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    season = args.season
+    player_id = args.player_id
+    top_teams = args.top_teams
+
+    context = SeasonFitContext.build(
+        season,
+        prefer_interim=True,
+        prefer_api=False,
+    )
+    if context.source != "interim":
+        print(
+            f"Expected interim context for {season}; got source={context.source!r}.",
+            file=sys.stderr,
+        )
+        return 1
+
     table = build_fit_index_table(context)
     ranker = FitRanker(context=context, table=table)
-    dest = ranker.rank_destinations_for_player(DEMO_PLAYER_ID, top_n=TOP_TEAMS)
+    dest = ranker.rank_destinations_for_player(player_id, top_n=top_teams)
 
     if dest.empty:
         print("No destination rankings to plot.", file=sys.stderr)
@@ -65,7 +104,10 @@ def main() -> int:
         ax=ax,
         cbar_kws={"label": "Submetric score (0–1)"},
     )
-    ax.set_title(f"Player {DEMO_PLAYER_ID} — submetrics vs top {TOP_TEAMS} destinations")
+    ax.set_title(
+        f"Player {player_id} — submetrics vs top {top_teams} destinations "
+        f"({season} interim)"
+    )
     ax.set_xlabel("Submetric")
     ax.set_ylabel("Team")
     plt.xticks(rotation=35, ha="right")
@@ -73,6 +115,9 @@ def main() -> int:
 
     path = save_figure(fig, "05_fit_score_heatmap", subdir="fit")
     print(f"Wrote {path}")
+    for _, row in dest.iterrows():
+        pct = float(row["overall_fit_percentile"])
+        print(f"  #{int(row['rank'])} {row['team']}: {pct:.2f} percentile")
     return 0
 
 

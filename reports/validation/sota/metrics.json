@@ -1,0 +1,21 @@
+{
+  "season": "2024-25",
+  "generated_at_utc": "template",
+  "movements_source": "synthetic",
+  "calibration": {
+    "method": "isotonic",
+    "fitted": false,
+    "n_anchor": 0,
+    "outcome_scale": "unit_interval"
+  },
+  "backtest": {
+    "n_movements": 0,
+    "movements_synthetic": true,
+    "movements_source": "synthetic"
+  },
+  "ensemble_component_weights": {},
+  "learned_ensemble_weights": {},
+  "degradation_warnings": [
+    "Template bundle — run SOTA validation to populate real metrics."
+  ]
+}

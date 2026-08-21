@@ -35,3 +35,16 @@ def test_ablation_d_applies_calibration() -> None:
     if not d.rows.empty:
         assert "calibrated_fit_percentile" in d.rows.columns
         assert "calibrated_fit_percentile" not in abc.rows.columns or abc.variant == "ABC"
+
+
+def test_ablation_report_to_json(tmp_path) -> None:
+    from nba_fit.evaluation.ablation import ablation_report_to_dict, write_ablation_metrics
+
+    context = SeasonFitContext.from_synthetic("2024-25", n_players=30)
+    movements = synthetic_movements("2024-25", n_moves=4)
+    report = run_ablation(context, movements)
+    payload = ablation_report_to_dict(report)
+    assert set(payload["variants"].keys()) == {"A", "AB", "ABC", "D"}
+    out = tmp_path / "ablation_metrics.json"
+    write_ablation_metrics(report, out)
+    assert out.is_file()

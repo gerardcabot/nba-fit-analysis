@@ -31,12 +31,16 @@ from nba_fit.data.fetchers.tactical import (
     tactical_kwargs,
 )
 from nba_fit.data.fetchers.transactions import (
+    MANUAL_MOVEMENT_TEMPLATE_COLUMNS,
+    MOVEMENT_COLUMNS,
     MovementEvent,
     ensure_stub_template,
     fetch_movements_from_gamelogs,
     get_movements,
+    load_gamelogs_for_season,
     load_manual_movements,
     synthetic_movements,
+    warm_movements_cache,
 )
 
 __all__ = [
@@ -62,10 +66,14 @@ __all__ = [
     "tactical_kwargs",
     "tactical_primary_dataset_name",
     "tactical_primary_frame",
+    "MANUAL_MOVEMENT_TEMPLATE_COLUMNS",
+    "MOVEMENT_COLUMNS",
     "MovementEvent",
     "ensure_stub_template",
     "fetch_movements_from_gamelogs",
     "get_movements",
+    "load_gamelogs_for_season",
     "load_manual_movements",
     "synthetic_movements",
+    "warm_movements_cache",
 ]

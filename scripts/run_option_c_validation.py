@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -21,6 +23,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
+
+_SRC = str(REPO_ROOT / "src")
+
+
+def _subprocess_env() -> dict[str, str]:
+    """Pin imports to this repo so a different editable install cannot hijack CLI."""
+    env = os.environ.copy()
+    prefix = _SRC
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = prefix if not existing else f"{prefix}{os.pathsep}{existing}"
+    return env
 
 
 def _log(lines: list[str], msg: str) -> None:
@@ -42,6 +55,7 @@ def _run_cmd(
         cwd=cwd or REPO_ROOT,
         capture_output=True,
         text=True,
+        env=_subprocess_env(),
     )
     if proc.stdout:
         _log(lines, proc.stdout.rstrip())
@@ -76,6 +90,21 @@ def _possessions_ready(season: str) -> bool:
     return part.exists() and any(part.rglob("*.parquet"))
 
 
+def _lineups_have_ratings(season: str) -> bool:
+    """True when interim lineup_units includes non-zero Advanced OFF_RATING."""
+    if not _interim_ready(season):
+        return False
+    import pandas as pd
+
+    from nba_fit.normalize.lineups import load_lineup_units_table
+
+    df = load_lineup_units_table(season)
+    if "OFF_RATING" not in df.columns:
+        return False
+    off = pd.to_numeric(df["OFF_RATING"], errors="coerce").fillna(0.0)
+    return bool((off.abs() > 1e-6).any())
+
+
 def _run_pytest(lines: list[str]) -> None:
     cmd = [
         sys.executable,
@@ -87,7 +116,13 @@ def _run_pytest(lines: list[str]) -> None:
     ]
     display = " ".join(cmd)
     _log(lines, f"\n$ {display}")
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=_subprocess_env(),
+    )
     if proc.stdout:
         _log(lines, proc.stdout.rstrip())
     if proc.stderr:
@@ -96,11 +131,17 @@ def _run_pytest(lines: list[str]) -> None:
         raise RuntimeError(f"pytest failed ({proc.returncode})")
 
 
+def _copy_visual_figure(src: Path, dest_name: str) -> Path:
+    dest = FIGURES_DIR / dest_name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if src.resolve() != dest.resolve():
+        shutil.copy2(src, dest)
+    return dest
+
+
 def _run_visual_tests(lines: list[str]) -> list[str]:
     import importlib
-    import shutil
 
-    import nba_fit.config.settings as nba_settings
     import visual_tests._constants as vt_constants
     import visual_tests._plot_utils as plot_utils
 
@@ -108,39 +149,46 @@ def _run_visual_tests(lines: list[str]) -> list[str]:
     vt_constants.FIGURES_DIR = FIGURES_DIR
     plot_utils.FIGURES_DIR = FIGURES_DIR
 
-    prev_season = nba_settings.DEFAULT_SEASON
-    nba_settings.DEFAULT_SEASON = SEASON
+    flat_names = {
+        "09_possession_rate": "09_possession_rate.png",
+        "10_rapm_distribution": "10_rapm_distribution.png",
+        "11_lineup_delta_bar": "11_lineup_delta_bar.png",
+    }
+
+    for mod_name in (
+        "visual_tests.09_possession_rate",
+        "visual_tests.10_rapm_distribution",
+        "visual_tests.11_lineup_delta_bar",
+    ):
+        _log(lines, f"\n$ python {mod_name.replace('.', '/')}.py")
+        if mod_name in sys.modules:
+            mod = importlib.reload(sys.modules[mod_name])
+        else:
+            mod = importlib.import_module(mod_name)
+        rc = int(mod.main())
+        if rc != 0:
+            raise RuntimeError(f"{mod_name} exited {rc}")
 
     figure_paths: list[str] = []
-    try:
-        for mod_name in (
-            "visual_tests.09_possession_rate",
-            "visual_tests.10_rapm_distribution",
-            "visual_tests.11_lineup_delta_bar",
-        ):
-            _log(lines, f"\n$ python {mod_name.replace('.', '/')}.py")
-            if mod_name in sys.modules:
-                mod = importlib.reload(sys.modules[mod_name])
-            else:
-                mod = importlib.import_module(mod_name)
-            if hasattr(mod, "DEFAULT_SEASON"):
-                mod.DEFAULT_SEASON = SEASON
-            rc = int(mod.main())
-            if rc != 0:
-                raise RuntimeError(f"{mod_name} exited {rc}")
-    finally:
-        nba_settings.DEFAULT_SEASON = prev_season
+    for stem, dest_name in flat_names.items():
+        copied = False
+        for candidate in sorted(FIGURES_DIR.rglob(f"{stem}.png")):
+            dest = _copy_visual_figure(candidate, dest_name)
+            figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+            copied = True
+            break
+        if not copied:
+            default_fig = REPO_ROOT / "reports" / "figures"
+            if default_fig.exists():
+                for candidate in sorted(default_fig.rglob(f"{stem}.png")):
+                    dest = _copy_visual_figure(candidate, dest_name)
+                    figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+                    break
 
-    for png in sorted(FIGURES_DIR.rglob("*.png")):
-        figure_paths.append(str(png.relative_to(REPO_ROOT)))
-
-    default_fig = REPO_ROOT / "reports" / "figures"
-    if default_fig.exists():
-        for png in default_fig.rglob("09_possession_rate.png"):
-            dest = FIGURES_DIR / png.name
-            if not dest.exists():
-                shutil.copy2(png, dest)
-                figure_paths.append(str(dest.relative_to(REPO_ROOT)))
+    for png in sorted(FIGURES_DIR.glob("*.png")):
+        rel = str(png.relative_to(REPO_ROOT))
+        if rel not in figure_paths:
+            figure_paths.append(rel)
 
     return sorted(set(figure_paths))
 
@@ -203,6 +251,12 @@ def main() -> int:
 
     if not _interim_ready(SEASON):
         _run_cmd(log_lines, ["ingest", "--tier", "mvp", "--season", SEASON])
+        _run_cmd(log_lines, ["ingest", "--tier", "role", "--season", SEASON])
+    elif not _lineups_have_ratings(SEASON):
+        _log(
+            log_lines,
+            f"Re-ingesting role tier — lineup_units missing Advanced OFF/DEF ratings for {SEASON}",
+        )
         _run_cmd(log_lines, ["ingest", "--tier", "role", "--season", SEASON])
     else:
         _log(log_lines, f"Skipping mvp/role ingest — interim tables cached for {SEASON}")
@@ -280,10 +334,28 @@ def main() -> int:
 
     metrics["possessions"] = _possession_metrics(SEASON)
     metrics["rapm"] = _rapm_summary(SEASON)
+
+    from nba_fit.evaluation.rapm_benchmark import benchmark_rapm_vs_estimated_net
+    from nba_fit.evaluation.sota_validation import assert_non_degenerate_rapm
+    from nba_fit.models.rapm import load_rapm
+
+    rapm = load_rapm(SEASON)
+    assert_non_degenerate_rapm(rapm)
+    metrics["benchmark"] = benchmark_rapm_vs_estimated_net(SEASON, rapm=rapm).to_dict()
+    metrics["sota_gates"] = {"non_degenerate_rapm": True}
     metrics["lineup_sim"] = {
         "projected_net_rating_delta": sim.projected_net_rating_delta,
         "data_source": sim.data_source,
     }
+    metrics["lineup_deltas"] = [
+        {
+            "lineup_key": u.lineup_key,
+            "lineup_label": u.lineup_label,
+            "projected_net_rating_delta": u.projected_net_rating_delta,
+            "minutes": u.minutes,
+        }
+        for u in sim.top_lineups
+    ]
     metrics["figures"] = figure_paths
     metrics["finished_at"] = datetime.now(timezone.utc).isoformat()
 

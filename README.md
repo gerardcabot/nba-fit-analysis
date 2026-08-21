@@ -70,6 +70,17 @@ The full product lives on **`stage/04-option-d`** (or `main` after merging the s
 - Network access to `stats.nba.com` for live ingest (cached afterward)
 - ~2–5 GB disk for a full season of cached raw + interim data (depends on ingest tiers)
 
+### External data directory (Windows)
+
+Keep large Parquet caches off the repo drive by setting **`NBA_FIT_DATA_ROOT`**:
+
+```powershell
+$env:NBA_FIT_DATA_ROOT = 'E:\Nba Fit Data'
+python scripts\init_nba_fit_data_root.py
+```
+
+This creates `raw/`, `interim/`, `features/`, and `models/` under that path. Reports and code stay in the checkout. See [docs/STORAGE.md](docs/STORAGE.md).
+
 ---
 
 ## Installation
@@ -119,14 +130,17 @@ python probe_all_nba_endpoints.py
 | MVP | `--tier mvp` | League player/team dashboards, shot locations, estimated metrics |
 | Role | `--tier role` | Lineups, on/off summaries (30 teams × endpoints; long first run) |
 | Impact | `--tier impact` | Play-by-play + rotation → possession tables (`--max-games` caps API load) |
+| Tactical | `--tier tactical` | Hustle, defend, gravity league bulk tables |
 
 ```bash
 python -m nba_fit ingest --season 2025-26 --tier mvp
 python -m nba_fit ingest --season 2025-26 --tier role
+python -m nba_fit ingest --season 2025-26 --tier tactical
 python -m nba_fit ingest --season 2025-26 --tier impact --max-games 50
+python -m nba_fit materialize-features --season 2025-26
 ```
 
-Cached responses are written under `data/raw/`; normalized tables under `data/interim/`. See [docs/STORAGE.md](docs/STORAGE.md).
+Cached responses are written under `data/raw/` (or `{NBA_FIT_DATA_ROOT}/raw/` when set); normalized tables under `data/interim/` or `{NBA_FIT_DATA_ROOT}/interim/`. See [docs/STORAGE.md](docs/STORAGE.md).
 
 ### 3. Train models
 

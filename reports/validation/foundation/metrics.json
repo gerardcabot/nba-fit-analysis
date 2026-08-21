@@ -1,0 +1,37 @@
+{
+  "generated_at_utc": "2026-05-28T17:10:46Z",
+  "branch": "stage/00-foundation",
+  "figures_regeneration_note": "Figures regenerated: endpoint health chart uses ProbeRegistry OK/EMPTY/FAIL (unique endpoints); PBP chart labels blank actionType as (unknown) and uses probe meta season for the probed game.",
+  "endpoint_health": {
+    "OK": 100,
+    "EMPTY": 6,
+    "FAIL": 36,
+    "total": 142
+  },
+  "health_cli_exit_code": 0,
+  "fetch_sample": {
+    "endpoint": "leaguedashplayerstats",
+    "season": "2024-25",
+    "exit_code": 0,
+    "row_count": 24
+  },
+  "pytest": {
+    "exit_code": 0,
+    "summary_line": "7 passed in 4.28s",
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0
+  },
+  "pbp_live": {
+    "exit_code": 0,
+    "row_count": 499
+  },
+  "visual_tests": {
+    "01_endpoint_health_exit_code": 0,
+    "02_pbp_schema_exit_code": 0,
+    "figures": [
+      "01_endpoint_health.png",
+      "02_pbp_action_type_distribution.png"
+    ]
+  }
+}

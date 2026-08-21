@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from nba_fit.config.endpoints import ENDPOINT_REGISTRY, ESSENTIAL_ENDPOINTS
 from nba_fit.config.settings import (
@@ -29,9 +30,12 @@ from nba_fit.scoring.archetype_board import archetype_board_for_team
 from nba_fit.scoring.fit_card import fit_card_to_json
 from nba_fit.scoring.lineup_sim import run_lineup_sim
 from nba_fit.data.fetchers.transactions import synthetic_movements
-from nba_fit.evaluation.holdout_season import run_holdout_season_smoke
+from nba_fit.evaluation.holdout_season import run_holdout_season
 from nba_fit.evaluation.movement_backtest import run_movement_backtest
-from nba_fit.models.weight_learning import learn_ensemble_weights
+from nba_fit.models.weight_learning import (
+    learn_ensemble_weights,
+    save_ensemble_weights,
+)
 from nba_fit.scoring.constants import ENSEMBLE_COMPONENT_NAMES
 from nba_fit.scoring.ranker import FitRanker
 
@@ -168,6 +172,19 @@ def _cmd_fetch_sample(args: argparse.Namespace) -> int:
     return 0
 
 
+def _write_rank_output(rankings, path: str) -> None:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    suffix = out.suffix.lower()
+    if suffix == ".json":
+        rankings.to_json(out, orient="records", indent=2)
+    elif suffix in (".csv", ".tsv"):
+        rankings.to_csv(out, index=False, sep="\t" if suffix == ".tsv" else ",")
+    else:
+        rankings.to_csv(out, index=False)
+    print(f"Wrote rankings to {out}")
+
+
 def _cmd_rank_player(args: argparse.Namespace) -> int:
     player_id = int(args.player_id)
     ranker = FitRanker.from_season(
@@ -179,15 +196,27 @@ def _cmd_rank_player(args: argparse.Namespace) -> int:
     if rankings.empty:
         print(f"No rankings for player_id={player_id} (season={args.season})", file=sys.stderr)
         return 1
-    print(
-        f"Top team destinations for player {player_id} "
-        f"({args.season}, source={ranker.context.source})"
-    )
-    print(rankings.to_string(index=False))
+    if args.output:
+        _write_rank_output(rankings, args.output)
+    else:
+        print(
+            f"Top team destinations for player {player_id} "
+            f"({args.season}, source={ranker.context.source})"
+        )
+        print(rankings.to_string(index=False))
     if args.fit_card_team:
         card = ranker.fit_card(player_id, int(args.fit_card_team))
-        print()
-        print(fit_card_to_json(card))
+        if args.output and not args.fit_card_output:
+            print()
+            print(fit_card_to_json(card))
+        elif args.fit_card_output:
+            fit_path = Path(args.fit_card_output)
+            fit_path.parent.mkdir(parents=True, exist_ok=True)
+            fit_path.write_text(fit_card_to_json(card), encoding="utf-8")
+            print(f"Wrote fit card to {fit_path}")
+        else:
+            print()
+            print(fit_card_to_json(card))
     return 0
 
 
@@ -237,10 +266,11 @@ def _cmd_train_impact(args: argparse.Namespace) -> int:
     print(f"  rapm source: {impact_ctx.rapm_source}")
     if impact_ctx.degenerate_rapm:
         print(
-            "  WARNING: degenerate RAPM (net_rapm std == 0) — "
-            "impact submetrics may be uninformative",
+            "  ERROR: degenerate RAPM (net_rapm std == 0) — "
+            "SOTA validation will fail; check possession/lineup ingest",
             file=sys.stderr,
         )
+        return 1
     net_std = impact_ctx.metadata.get("net_rapm_std", float(impact_ctx.rapm.net_rapm.std()))
     print(f"  net rapm std: {net_std:.4f}")
     print(
@@ -254,13 +284,25 @@ def _cmd_train_impact(args: argparse.Namespace) -> int:
 
 
 def _cmd_fit_weights(args: argparse.Namespace) -> int:
-    """Stub: learn ensemble weights from synthetic or movement backtest labels."""
+    """Learn ensemble weights from movement backtest labels and persist JSON."""
     season = args.season or get_settings().default_season
+    use_synthetic = args.synthetic
     print(f"Learning ensemble weights season={season}...")
     try:
-        context = SeasonFitContext.from_synthetic(season, n_players=30)
-        movements = synthetic_movements(season, n_moves=15)
-        result = run_movement_backtest(context, movements, calibrate=False)
+        if use_synthetic:
+            context = SeasonFitContext.from_synthetic(season, n_players=30)
+            movements = synthetic_movements(season, n_moves=15)
+            result = run_movement_backtest(context, movements, calibrate=False)
+        else:
+            context = SeasonFitContext.build(
+                season, prefer_interim=True, prefer_api=False
+            )
+            movements = None
+            result = run_movement_backtest(
+                context,
+                movements,
+                calibrate=False,
+            )
         rows = result.rows
         if rows.empty:
             print("No movement rows to fit weights.", file=sys.stderr)
@@ -276,6 +318,7 @@ def _cmd_fit_weights(args: argparse.Namespace) -> int:
         y = rows["post_move_outcome"].to_numpy(dtype=float)
         l2 = args.l2
         fit = learn_ensemble_weights(X, y, l2=l2) if l2 is not None else learn_ensemble_weights(X, y)
+        out_path = save_ensemble_weights(fit, season)
     except Exception as exc:  # noqa: BLE001
         print(f"fit-weights failed: {exc}", file=sys.stderr)
         return 1
@@ -283,6 +326,7 @@ def _cmd_fit_weights(args: argparse.Namespace) -> int:
     print(f"  n_samples: {fit.n_samples}")
     print(f"  train_mse: {fit.train_mse:.4f}")
     print(f"  l2: {fit.l2}")
+    print(f"  saved: {out_path}")
     for name, w in fit.weights.items():
         prior = fit.prior_weights.get(name, 0.0)
         print(f"  {name:22} learned={w:.3f}  prior={prior:.3f}")
@@ -476,6 +520,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Also print JSON fit card vs this team_id",
     )
+    rank_p.add_argument(
+        "--output",
+        metavar="PATH",
+        default=None,
+        help="Write destination rankings to CSV or JSON (by extension)",
+    )
+    rank_p.add_argument(
+        "--fit-card-output",
+        metavar="PATH",
+        default=None,
+        help="Write fit card JSON to PATH (requires --fit-card-team)",
+    )
     rank_p.set_defaults(func=_cmd_rank_player)
 
     rank_t = sub.add_parser(
@@ -524,7 +580,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     fit_weights = sub.add_parser(
         "fit-weights",
-        help="Learn ensemble weights from labeled movement rows (stub)",
+        help="Learn ensemble weights from labeled movement rows and save JSON",
     )
     fit_weights.add_argument("--season", default=get_settings().default_season)
     fit_weights.add_argument(
@@ -683,7 +739,7 @@ def _cmd_backtest_movement(args: argparse.Namespace) -> int:
             role_context=role_context,
             impact_context=impact_context,
         )
-        holdout = run_holdout_season_smoke(season, synthetic=use_synthetic)
+        holdout = run_holdout_season(season, prefer_interim=not use_synthetic, synthetic_fallback=True)
     except Exception as exc:  # noqa: BLE001
         print(f"backtest-movement failed: {exc}", file=sys.stderr)
         return 1

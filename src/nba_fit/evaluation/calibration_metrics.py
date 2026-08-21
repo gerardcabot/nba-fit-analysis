@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from nba_fit.models.calibration import FitCalibrator
 
 
 def brier_score(y_true: np.ndarray, y_prob: np.ndarray) -> float:
@@ -131,3 +135,114 @@ def calibration_report(
             }
         )
     return pd.DataFrame(rows)
+
+
+@dataclass(frozen=True)
+class HoldoutCalibrationResult:
+    """Isotonic calibrator fit on train-season movements, evaluated on holdout."""
+
+    train_seasons: tuple[str, ...]
+    eval_season: str
+    n_train: int
+    n_eval: int
+    brier: float | None
+    ece: float | None
+    decile_lift: float | None
+    spearman: float | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "train_seasons": list(self.train_seasons),
+            "eval_season": self.eval_season,
+            "n_train": self.n_train,
+            "n_eval": self.n_eval,
+            "brier": self.brier,
+            "ece": self.ece,
+            "decile_lift": self.decile_lift,
+            "spearman": self.spearman,
+        }
+
+
+def split_movements_by_season(
+    movements: pd.DataFrame,
+    *,
+    eval_season: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Partition movement rows into train (season < eval) and eval (== eval) sets."""
+    if movements.empty or "season" not in movements.columns:
+        return movements.iloc[0:0].copy(), movements.copy()
+    eval_start = int(eval_season.split("-")[0])
+    seasons = movements["season"].astype(str)
+
+    def _season_start(label: str) -> int:
+        return int(str(label).split("-")[0])
+
+    train_mask = seasons.map(_season_start) < eval_start
+    eval_mask = seasons == eval_season
+    return movements.loc[train_mask].copy(), movements.loc[eval_mask].copy()
+
+
+def fit_isotonic_on_train_rows(
+    train_rows: pd.DataFrame,
+    *,
+    raw_col: str = "raw_fit_score",
+    outcome_col: str = "post_move_outcome",
+) -> FitCalibrator | None:
+    """Fit isotonic regression on train-season movement rows only."""
+    if train_rows.empty or raw_col not in train_rows.columns:
+        return None
+    outcomes = (
+        train_rows[outcome_col].to_numpy(dtype=float)
+        if outcome_col in train_rows.columns
+        else None
+    )
+    if outcomes is None:
+        return None
+    calibrator = FitCalibrator(method="isotonic")
+    calibrator.fit(train_rows[raw_col].to_numpy(dtype=float), outcomes)
+    return calibrator if calibrator.is_fitted_ else None
+
+
+def evaluate_holdout_calibration(
+    calibrator: FitCalibrator | None,
+    eval_rows: pd.DataFrame,
+    *,
+    raw_col: str = "raw_fit_score",
+    outcome_col: str = "post_move_outcome",
+    train_seasons: tuple[str, ...] = (),
+    eval_season: str = "",
+    n_train: int = 0,
+) -> HoldoutCalibrationResult:
+    """
+    Apply a train-fit isotonic calibrator to holdout rows and report metrics.
+
+    Intended workflow: fit on pre-2024-25 movements, evaluate on 2024-25 holdout.
+    """
+    empty = HoldoutCalibrationResult(
+        train_seasons=train_seasons,
+        eval_season=eval_season,
+        n_train=0,
+        n_eval=len(eval_rows),
+        brier=None,
+        ece=None,
+        decile_lift=None,
+        spearman=None,
+    )
+    if calibrator is None or eval_rows.empty or outcome_col not in eval_rows.columns:
+        return empty
+
+    raw = eval_rows[raw_col].to_numpy(dtype=float)
+    calibrated = calibrator.transform(raw)
+    y = eval_rows[outcome_col].to_numpy(dtype=float)
+    p = np.clip(calibrated / 100.0, 0.0, 1.0)
+
+    return HoldoutCalibrationResult(
+        train_seasons=train_seasons,
+        eval_season=eval_season,
+        n_train=n_train,
+        n_eval=len(eval_rows),
+        brier=brier_score(y, p),
+        ece=expected_calibration_error(y, p),
+        decile_lift=decile_lift(y, p),
+        spearman=spearman_rank_corr(y, p),
+    )

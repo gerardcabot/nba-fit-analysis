@@ -24,6 +24,7 @@ from nba_fit.data.ingest import resolve_endpoints, resolve_impact_max_games, run
 def _fake_settings(tmp_path: Path) -> Settings:
     return Settings(
         root=tmp_path,
+        data_root=None,
         data_raw=tmp_path / "data" / "raw",
         data_interim=tmp_path / "data" / "interim",
         data_features=tmp_path / "data" / "features",

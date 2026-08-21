@@ -3,7 +3,7 @@
   "team_id": 1610612747,
   "season": "2024-25",
   "data_source": "lineup_units",
-  "projected_net_rating_delta": 0.0,
+  "projected_net_rating_delta": 0.2963796764838695,
   "note": "Minute-weighted lineup deltas from RAPM swap + optional embedding lineup model (train roles + ingest --tier role for live data).",
   "top_lineups": [
     {
@@ -13,7 +13,7 @@
         2544
       ],
       "baseline_net_rating": 0.0,
-      "projected_net_rating_delta": 0.0,
+      "projected_net_rating_delta": 0.2963796764838695,
       "minutes": 1.0,
       "replaced_player_id": 1642439
     }

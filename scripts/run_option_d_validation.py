@@ -42,7 +42,7 @@ from nba_fit.data.fetchers.transactions import (  # noqa: E402
     synthetic_movements,
 )
 from nba_fit.data.ingest import run_ingest  # noqa: E402
-from nba_fit.evaluation.holdout_season import run_holdout_season_smoke  # noqa: E402
+from nba_fit.evaluation.holdout_season import run_holdout_season  # noqa: E402
 from nba_fit.evaluation.movement_backtest import run_movement_backtest  # noqa: E402
 from nba_fit.features.season_context import SeasonFitContext  # noqa: E402
 from nba_fit.models.impact_context import ImpactFitContext, train_impact_for_season  # noqa: E402
@@ -430,7 +430,7 @@ def main() -> int:
             role_context=role_ctx,
             impact_context=impact_ctx,
         )
-        holdout = run_holdout_season_smoke(SEASON, synthetic=not ingest_ok)
+        holdout = run_holdout_season(SEASON, prefer_interim=ingest_ok, synthetic_fallback=True)
         backtest_result.rows.to_csv(_OUT / "backtest_results.csv", index=False)
         log.append(f"- **Status:** pass ({backtest_result.n_movements} scored)")
     except Exception as exc:  # noqa: BLE001

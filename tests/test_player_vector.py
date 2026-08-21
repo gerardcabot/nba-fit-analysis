@@ -14,7 +14,9 @@ from nba_fit.features.constants import (
 )
 from nba_fit.features.player_vector import (
     FEATURE_GROUP_DEFENSE,
+    FEATURE_GROUP_ONOFF,
     FEATURE_GROUP_ROLE_VOLUME,
+    FEATURE_GROUP_TACTICAL,
     PLAYER_FEATURE_GROUPS,
     build_player_features,
     infer_role_bucket,

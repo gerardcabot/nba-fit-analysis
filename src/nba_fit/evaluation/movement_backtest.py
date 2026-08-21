@@ -8,7 +8,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from nba_fit.data.fetchers.transactions import MOVEMENT_COLUMNS, get_movements
+from datetime import date
+
+from nba_fit.data.fetchers.transactions import (
+    MOVEMENT_COLUMNS,
+    get_movements,
+    load_gamelogs_for_season,
+)
 from nba_fit.features.season_context import SeasonFitContext
 from nba_fit.models.calibration import FitCalibrator, calibrate_fit_table
 from nba_fit.models.constants import (
@@ -134,15 +140,28 @@ def _synthetic_post_rates(move: pd.Series, rng: np.random.Generator) -> dict[str
     }
 
 
+def _move_cutoff_date(move: pd.Series) -> date | None:
+    if "move_date" not in move.index:
+        return None
+    ts = pd.to_datetime(move["move_date"], errors="coerce")
+    if pd.isna(ts):
+        return None
+    return ts.date()
+
+
 def freeze_pre_move_features(
     context: SeasonFitContext,
     movements: pd.DataFrame,
     *,
     role_context: Any = None,
     impact_context: Any = None,
+    use_temporal_cutoff: bool = True,
 ) -> pd.DataFrame:
     """
     Score each movement using only pre-move season context (no post-move team stats).
+
+    When *use_temporal_cutoff* and game logs are on *context*, each row uses
+    :meth:`SeasonFitContext.as_of` at ``move_date``.
 
     Returns one row per movement with submetrics and ``raw_fit_score`` for the
     destination team at move time.
@@ -150,19 +169,25 @@ def freeze_pre_move_features(
     if movements.empty:
         return pd.DataFrame()
 
-    table = build_fit_index_table(
-        context,
-        role_context=role_context,
-        impact_context=impact_context,
-    )
     rows: list[dict[str, Any]] = []
 
     for _, move in movements.iterrows():
+        move_ctx = context
+        cutoff = _move_cutoff_date(move)
+        if use_temporal_cutoff and cutoff is not None and context.gamelogs is not None:
+            move_ctx = context.as_of(cutoff)
+
+        table = build_fit_index_table(
+            move_ctx,
+            role_context=role_context,
+            impact_context=impact_context,
+        )
+
         player_id = int(move["player_id"])
         to_team = int(move["to_team_id"])
         from_team = int(move["from_team_id"])
-        player = context.players.get(player_id)
-        team = context.teams.get(to_team)
+        player = move_ctx.players.get(player_id)
+        team = move_ctx.teams.get(to_team)
         if player is None or team is None:
             continue
 
@@ -194,8 +219,19 @@ def freeze_pre_move_features(
                 impact_context=impact_context,
             )
             ensemble = extract_ensemble_components(sub, player=player)
-            raw = raw_ensemble_score(ensemble)
+            raw = raw_ensemble_score(ensemble, season=context.season)
             pre_pct = None
+
+        pre_gp: int | None = None
+        players_raw = move_ctx._effective_players_raw  # noqa: SLF001
+        if players_raw is None:
+            players_raw = move_ctx._players_raw  # noqa: SLF001
+        if players_raw is not None:
+            pid_col = "PLAYER_ID" if "PLAYER_ID" in players_raw.columns else "player_id"
+            if pid_col in players_raw.columns:
+                prow = players_raw.loc[players_raw[pid_col] == player_id]
+                if not prow.empty and "GP" in prow.columns:
+                    pre_gp = int(prow.iloc[0]["GP"])
 
         rows.append(
             {
@@ -205,6 +241,7 @@ def freeze_pre_move_features(
                 "move_date": move["move_date"],
                 "season": move["season"],
                 "movement_type": move.get("movement_type", "team_change"),
+                "pre_move_gp": pre_gp,
                 "pre_move_minutes": _player_minutes_proxy(player),
                 "raw_fit_score": raw,
                 "pre_move_fit_percentile": pre_pct,
@@ -464,6 +501,9 @@ def run_movement_backtest(
     n_players: int = 60,
     role_context: Any = None,
     impact_context: Any = None,
+    game_logs: pd.DataFrame | None = None,
+    allow_api_gamelogs: bool = False,
+    use_observed_labels: bool | None = None,
     calibrate: bool = True,
     calibration_method: str = "isotonic",
 ) -> MovementBacktestResult:
@@ -491,6 +531,9 @@ def run_movement_backtest(
             movements,
             role_context=role_context,
             impact_context=impact_context,
+            game_logs=game_logs,
+            allow_api_gamelogs=allow_api_gamelogs,
+            use_observed_labels=use_observed_labels,
             calibrate=calibrate,
             calibration_method=calibration_method,
         )
@@ -498,10 +541,18 @@ def run_movement_backtest(
     context = context_or_season
     season = context.season
     if movements is None:
-        movements = get_movements(season, use_synthetic_fallback=True)
+        movements = get_movements(season, use_synthetic_fallback=not synthetic)
 
     if movements.empty:
         return MovementBacktestResult(season=season, rows=pd.DataFrame())
+
+    logs = game_logs
+    if logs is None and (context.gamelogs is None or context.gamelogs.empty):
+        logs = load_gamelogs_for_season(
+            season, allow_api=allow_api_gamelogs, use_cache=True
+        )
+    if logs is not None and not logs.empty and context.gamelogs is None:
+        context = context.with_gamelogs(logs)
 
     mv = movements[list(MOVEMENT_COLUMNS)].copy()
     frozen = freeze_pre_move_features(
@@ -510,7 +561,25 @@ def run_movement_backtest(
         role_context=role_context,
         impact_context=impact_context,
     )
-    labeled = label_post_move_outcomes(frozen, mv, context)
+
+    observed_default = use_observed_labels
+    if observed_default is None:
+        observed_default = logs is not None and not logs.empty
+
+    if observed_default and logs is not None and not logs.empty:
+        labeled = label_post_move_from_observed(
+            frozen,
+            mv,
+            context,
+            logs,
+            fallback_to_synthetic=False,
+        )
+        if labeled["post_move_outcome"].isna().any():
+            labeled = label_post_move_from_observed(
+                frozen, mv, context, logs, fallback_to_synthetic=True
+            )
+    else:
+        labeled = label_post_move_outcomes(frozen, mv, context)
 
     calibrator: FitCalibrator | None = None
     if calibrate and not labeled.empty:

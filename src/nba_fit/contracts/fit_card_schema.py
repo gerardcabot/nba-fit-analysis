@@ -37,6 +37,8 @@ class FitCard(TypedDict, total=False):
     submetrics: dict[str, float]
     archetype: str | None
     industry_role: str | None
+    soft_role_display: str | None
+    industry_role_probs: dict[str, float] | None
     archetype_id: int | None
     role_fit: float | None
     comps: list[FitCardComp]
@@ -61,6 +63,7 @@ def fit_card_required_keys() -> tuple[str, ...]:
         "submetrics",
         "archetype",
         "industry_role",
+        "soft_role_display",
         "archetype_id",
         "role_fit",
         "comps",
